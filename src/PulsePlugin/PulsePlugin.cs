@@ -31,8 +31,11 @@ public class PulsePlugin : IVidoPlugin
         var liveAmplitude = new LiveAmplitudeService();
         var mapper = new PulseTCodeMapper();
 
-        // Detect already-loaded media.
-        string? currentMedia = context.VideoEngine.CurrentMetadata?.FilePath;
+        // Detect already-loaded media (only if the engine actually has a video loaded,
+        // not stale metadata from a previous session).
+        string? currentMedia = context.VideoEngine.State != PlaybackState.None
+            ? context.VideoEngine.CurrentMetadata?.FilePath
+            : null;
 
         _engine = new PulseEngine(
             _preAnalysisService, liveAmplitude, mapper,

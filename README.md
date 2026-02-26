@@ -14,8 +14,8 @@ Audio-to-haptics beat sync — pre-analyzes audio to detect beats and generate T
 
 ## Requirements
 
-- **Vido** 0.9.0 or later
-- **OSR2+ Plugin** 4.0.0 or later (installed automatically when installing from registry)
+- **Vido** 0.10.0 or later
+- **OSR2+ Plugin** 4.1.0 or later (installed automatically when installing from registry)
 
 ## Installation
 

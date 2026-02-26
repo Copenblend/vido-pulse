@@ -140,6 +140,7 @@ internal sealed class PulseEngine : IDisposable
 
         // Subscribe to event bus.
         _subscriptions.Add(_eventBus.Subscribe<VideoLoadedEvent>(OnVideoLoaded));
+        _subscriptions.Add(_eventBus.Subscribe<VideoUnloadedEvent>(OnVideoUnloaded));
         _subscriptions.Add(_eventBus.Subscribe<PlaybackStateChangedEvent>(OnPlaybackStateChanged));
         _subscriptions.Add(_eventBus.Subscribe<HapticTransportStateEvent>(OnTransportStateChanged));
         _subscriptions.Add(_eventBus.Subscribe<HapticScriptsChangedEvent>(OnScriptsChanged));
@@ -339,6 +340,33 @@ internal sealed class PulseEngine : IDisposable
             _logger.Info($"Starting analysis: {e.FilePath}", LogSource);
             _preAnalysisService.AnalyzeAsync(e.FilePath);
         }
+    }
+
+    private void OnVideoUnloaded(VideoUnloadedEvent e)
+    {
+        PulseState? stateChange = null;
+
+        lock (_lock)
+        {
+            _currentMediaPath = null;
+
+            if (_enabled)
+            {
+                _preAnalysisService.Cancel();
+                _currentBeatMap = null;
+                _effectiveBeatMap = null;
+                _beatSource.IsAvailable = false;
+                _lastPublishedBeatIndex = -1;
+                _tCodeMapper.Reset();
+                _liveAmplitudeService.Stop();
+                _liveAmplitudeService.Reset();
+                _isPlaying = false;
+                stateChange = TransitionTo(PulseState.Inactive);
+            }
+        }
+
+        if (stateChange.HasValue)
+            StateChanged?.Invoke(stateChange.Value);
     }
 
     private void OnPlaybackStateChanged(PlaybackStateChangedEvent e)
