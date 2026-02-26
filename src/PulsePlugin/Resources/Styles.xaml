@@ -108,9 +108,15 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Thumb">
-                    <Border Background="{StaticResource AccentBrush}"
+                    <Border x:Name="ThumbBorder"
+                            Background="{StaticResource AccentBrush}"
                             CornerRadius="1"
-                            Margin="0" />
+                            Opacity="0.5" />
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="ThumbBorder" Property="Opacity" Value="0.8" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

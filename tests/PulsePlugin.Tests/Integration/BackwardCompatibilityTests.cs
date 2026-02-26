@@ -244,6 +244,8 @@ public class BackwardCompatibilityTests : IDisposable
         var eventBus = new Mock<IEventBus>();
         eventBus.Setup(e => e.Subscribe(It.IsAny<Action<VideoLoadedEvent>>()))
             .Returns(Mock.Of<IDisposable>());
+        eventBus.Setup(e => e.Subscribe(It.IsAny<Action<VideoUnloadedEvent>>()))
+            .Returns(Mock.Of<IDisposable>());
         eventBus.Setup(e => e.Subscribe(It.IsAny<Action<PlaybackStateChangedEvent>>()))
             .Returns(Mock.Of<IDisposable>());
         eventBus.Setup(e => e.Subscribe(It.IsAny<Action<HapticTransportStateEvent>>()))
