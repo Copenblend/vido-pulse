@@ -24,3 +24,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `BpmEstimator` — autocorrelation-based BPM estimation with weighted histogram clustering, exponential smoothing, harmonic detection, and phase-locked beat quantization
 - `AudioPreAnalysisService` — pre-analyzes complete audio track via `IAudioDecoder`, runs OnsetDetector + BpmEstimator pipeline, produces `BeatMap` with beats, BPM, and downsampled waveform; cancellable with progress reporting
 - `LiveAmplitudeService` — real-time amplitude tracking via ring buffer for playback-time RMS envelope
+- `PulseTCodeMapper` — hybrid beat-to-position mapper: binary-search beat lookup, upstroke/downstroke waveform with quadratic easing, amplitude and beat-strength intensity scaling, configurable stroke range (5–95)
