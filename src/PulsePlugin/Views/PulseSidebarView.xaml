@@ -1,0 +1,117 @@
+<UserControl x:Class="PulsePlugin.Views.PulseSidebarView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:PulsePlugin.ViewModels"
+             xmlns:converters="clr-namespace:PulsePlugin.Converters"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance vm:PulseSidebarViewModel}"
+             Background="{StaticResource PanelBackgroundBrush}">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Resources/Styles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
+            <converters:StateColorToBrushConverter x:Key="StateColorBrush" />
+            <converters:FractionToPercentConverter x:Key="FracToPercent" />
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <ScrollViewer Style="{StaticResource PulseScrollViewerStyle}"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Background="{StaticResource PanelBackgroundBrush}">
+        <StackPanel Margin="12,8,12,12">
+
+            <!-- ════ Title ════ -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                <TextBlock Text="&#x2665;"
+                           Foreground="{StaticResource AccentBrush}"
+                           FontSize="14" FontWeight="Bold"
+                           VerticalAlignment="Center"
+                           Margin="0,0,6,0" />
+                <TextBlock Text="PULSE"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           FontSize="11" FontWeight="SemiBold" FontFamily="Segoe UI"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+
+            <!-- ════ Toggle Row ════ -->
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <ToggleButton Grid.Column="0"
+                              Style="{StaticResource PulseToggleStyle}"
+                              IsChecked="{Binding UsePulse, Mode=TwoWay}"
+                              VerticalAlignment="Center" />
+
+                <TextBlock Grid.Column="1"
+                           Text="Use Pulse"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           FontSize="12" FontFamily="Segoe UI"
+                           VerticalAlignment="Center"
+                           Margin="8,0,0,0" />
+
+                <!-- State indicator dot -->
+                <Ellipse Grid.Column="3"
+                         Width="8" Height="8"
+                         Fill="{Binding StateColor, Converter={StaticResource StateColorBrush}}"
+                         VerticalAlignment="Center"
+                         Margin="4,0,0,0" />
+            </Grid>
+
+            <!-- ════ Analysis Progress ════ -->
+            <StackPanel Visibility="{Binding IsAnalyzing, Converter={StaticResource BoolToVis}}"
+                        Margin="0,0,0,8">
+                <ProgressBar Style="{StaticResource PulseProgressBarStyle}"
+                             Value="{Binding AnalysisProgress, Converter={StaticResource FracToPercent}, Mode=OneWay}"
+                             Margin="0,0,0,4" />
+                <TextBlock Text="{Binding StatusMessage}"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           FontSize="11" FontFamily="Segoe UI" />
+            </StackPanel>
+
+            <!-- ════ BPM Readout ════ -->
+            <StackPanel Visibility="{Binding ShowBpm, Converter={StaticResource BoolToVis}}"
+                        Orientation="Horizontal"
+                        Margin="0,0,0,8">
+                <TextBlock Text="{Binding StatusMessage}"
+                           Foreground="{StaticResource BpmTextBrush}"
+                           FontSize="14" FontWeight="SemiBold" FontFamily="Segoe UI" />
+            </StackPanel>
+
+            <!-- ════ Separator ════ -->
+            <Border Height="1"
+                    Background="{StaticResource BorderBrush}"
+                    Margin="0,4,0,12" />
+
+            <!-- ════ Description ════ -->
+            <Border Background="{StaticResource DescriptionBackgroundBrush}"
+                    CornerRadius="4"
+                    Padding="10">
+                <StackPanel>
+                    <TextBlock Text="About Pulse"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="11" FontWeight="SemiBold" FontFamily="Segoe UI"
+                               Margin="0,0,0,6" />
+                    <TextBlock Text="{Binding Description}"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="11" FontFamily="Segoe UI"
+                               TextWrapping="Wrap"
+                               LineHeight="18" />
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

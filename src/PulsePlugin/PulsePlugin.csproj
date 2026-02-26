@@ -5,6 +5,7 @@
     <RootNamespace>PulsePlugin</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="PulsePlugin.Tests" />
@@ -12,6 +13,7 @@
   <ItemGroup>
     <PackageReference Include="Vido.Core" Version="$(VidoCoreVersion)" />
     <PackageReference Include="Vido.Haptics" Version="$(VidoHapticsVersion)" />
+    <PackageReference Include="FFmpeg.AutoGen.Abstractions" Version="$(FFmpegAutoGenVersion)" />
     <PackageReference Include="SkiaSharp" Version="$(SkiaSharpVersion)" />
     <PackageReference Include="SkiaSharp.Views.WPF" Version="$(SkiaSharpViewsWpfVersion)" />
   </ItemGroup>
