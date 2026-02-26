@@ -68,9 +68,15 @@ public class BeatBarIntegrationTests : IDisposable
     private void OnBeatSourceRegistration(ExternalBeatSourceRegistration reg)
     {
         if (reg.IsRegistering)
+        {
+            // De-duplicate (same pattern as BeatBarViewModel).
+            _registeredBeatSources.RemoveAll(s => s.Id == reg.Source.Id);
             _registeredBeatSources.Add(reg.Source);
+        }
         else
-            _registeredBeatSources.Remove(reg.Source);
+        {
+            _registeredBeatSources.RemoveAll(s => s.Id == reg.Source.Id);
+        }
     }
 
     private void OnSuppressFunscript(SuppressFunscriptEvent evt)

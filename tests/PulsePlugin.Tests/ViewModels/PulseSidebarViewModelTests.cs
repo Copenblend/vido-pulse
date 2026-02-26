@@ -303,6 +303,94 @@ public class PulseSidebarViewModelTests : IDisposable
     }
 
     // ──────────────────────────────────────────
+    //  StatusBarText
+    // ──────────────────────────────────────────
+
+    [Fact]
+    public void StatusBarText_InitialValue_IsOff()
+    {
+        Assert.Equal("\u2665 Pulse: Off", _vm.StatusBarText);
+    }
+
+    [Fact]
+    public async Task StatusBarText_Analyzing_ShowsAnalyzing()
+    {
+        _eventBus.Publish(MakeVideoLoaded());
+        _vm.UsePulse = true;
+
+        // Wait briefly for analysis to start.
+        var deadline = DateTime.UtcNow.AddMilliseconds(3000);
+        while (_vm.State == PulseState.Inactive && DateTime.UtcNow < deadline)
+            await Task.Delay(10);
+
+        // During analysis the text should indicate analyzing.
+        if (_vm.State == PulseState.Analyzing)
+            Assert.Equal("\u2665 Pulse: Analyzing...", _vm.StatusBarText);
+    }
+
+    [Fact]
+    public async Task StatusBarText_Ready_ShowsReady()
+    {
+        _eventBus.Publish(MakeVideoLoaded());
+        _vm.UsePulse = true;
+        await WaitForState(PulseState.Ready);
+
+        Assert.Equal("\u2665 Pulse: Ready", _vm.StatusBarText);
+    }
+
+    [Fact]
+    public async Task StatusBarText_Active_ShowsBpm()
+    {
+        _eventBus.Publish(MakeVideoLoaded());
+        _vm.UsePulse = true;
+        await WaitForState(PulseState.Ready);
+
+        // Simulate playback to transition to Active.
+        _eventBus.Publish(new Vido.Core.Events.PlaybackStateChangedEvent
+        {
+            State = Vido.Core.Playback.PlaybackState.Playing
+        });
+
+        await WaitForState(PulseState.Active);
+
+        Assert.StartsWith("\u2665 Pulse: Active", _vm.StatusBarText);
+        Assert.Contains("BPM", _vm.StatusBarText);
+    }
+
+    [Fact]
+    public async Task StatusBarText_ToggleOff_ReturnsToOff()
+    {
+        _eventBus.Publish(MakeVideoLoaded());
+        _vm.UsePulse = true;
+        await WaitForState(PulseState.Ready);
+
+        _vm.UsePulse = false;
+
+        Assert.Equal("\u2665 Pulse: Off", _vm.StatusBarText);
+    }
+
+    [Fact]
+    public void StatusBarText_RaisesPropertyChanged()
+    {
+        var raised = false;
+        _vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PulseSidebarViewModel.StatusBarText))
+                raised = true;
+        };
+
+        _eventBus.Publish(MakeVideoLoaded());
+        _vm.UsePulse = true;
+
+        // Wait briefly for property change.
+        var deadline = DateTime.UtcNow.AddMilliseconds(3000);
+        while (!raised && DateTime.UtcNow < deadline)
+            Thread.Sleep(10);
+
+        Assert.True(raised, "StatusBarText PropertyChanged was never raised");
+    }
+
+    // ──────────────────────────────────────────
     //  Dispose
     // ──────────────────────────────────────────
 

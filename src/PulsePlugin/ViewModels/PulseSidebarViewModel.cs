@@ -18,6 +18,7 @@ internal sealed class PulseSidebarViewModel : INotifyPropertyChanged, IDisposabl
     private double _currentBpm;
     private double _analysisProgress;
     private string _statusMessage = string.Empty;
+    private string _statusBarText = "\u2665 Pulse: Off";
     private string? _errorMessage;
     private bool _disposed;
 
@@ -105,6 +106,18 @@ internal sealed class PulseSidebarViewModel : INotifyPropertyChanged, IDisposabl
         }
     }
 
+    /// <summary>Short status string for the application status bar.</summary>
+    public string StatusBarText
+    {
+        get => _statusBarText;
+        private set
+        {
+            if (_statusBarText == value) return;
+            _statusBarText = value;
+            OnPropertyChanged();
+        }
+    }
+
     /// <summary>Whether the engine is currently analyzing (progress bar visible).</summary>
     public bool IsAnalyzing => _state == PulseState.Analyzing;
 
@@ -171,6 +184,16 @@ internal sealed class PulseSidebarViewModel : INotifyPropertyChanged, IDisposabl
             PulseState.Active => $"\u2665 {_currentBpm:F0} BPM",
             PulseState.Error => $"Error: {_errorMessage ?? "Unknown"}",
             _ => string.Empty
+        };
+
+        StatusBarText = _state switch
+        {
+            PulseState.Inactive => "\u2665 Pulse: Off",
+            PulseState.Analyzing => "\u2665 Pulse: Analyzing...",
+            PulseState.Ready => "\u2665 Pulse: Ready",
+            PulseState.Active => $"\u2665 Pulse: Active {_currentBpm:F0} BPM",
+            PulseState.Error => "\u2665 Pulse: Error",
+            _ => "\u2665 Pulse: Off"
         };
     }
 

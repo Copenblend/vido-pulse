@@ -32,6 +32,7 @@ internal sealed class PulseEngine : IDisposable
     // ── Internal state ──
     private readonly PulseBeatSource _beatSource = new();
     private readonly List<IDisposable> _subscriptions = new();
+    private readonly SynchronizationContext? _syncContext;
     private readonly object _lock = new();
 
     private PulseState _state = PulseState.Inactive;
@@ -104,6 +105,7 @@ internal sealed class PulseEngine : IDisposable
         _eventBus = eventBus;
         _logger = logger;
         _currentMediaPath = currentMediaPath;
+        _syncContext = SynchronizationContext.Current;
 
         // Wire pre-analysis callbacks.
         _preAnalysisService.AnalysisComplete += OnAnalysisComplete;
@@ -386,6 +388,14 @@ internal sealed class PulseEngine : IDisposable
             _liveAmplitudeService.Reset();
             _liveAmplitudeService.Start();
         }
+
+        // Re-publish registration so BeatBar rebuilds modes now that IsAvailable is true.
+        // Must run on UI thread — BeatBarViewModel.RebuildAvailableModes() modifies an ObservableCollection.
+        var registration = new ExternalBeatSourceRegistration { Source = _beatSource, IsRegistering = true };
+        if (_syncContext != null)
+            _syncContext.Post(_ => _eventBus.Publish(registration), null);
+        else
+            _eventBus.Publish(registration);
 
         if (stateChange.HasValue)
             StateChanged?.Invoke(stateChange.Value);

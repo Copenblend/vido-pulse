@@ -53,16 +53,23 @@ public class PulsePlugin : IVidoPlugin
         context.RegisterBottomPanel("pulse-waveform",
             () => new WaveformPanelView { DataContext = _waveformViewModel });
 
+        // Register status bar item.
+        context.RegisterStatusBarItem("pulse-status",
+            () => _sidebarViewModel.StatusBarText);
+
         // Restore persisted toggle state.
         bool savedEnabled = context.Settings.Get("usePulse", false);
         if (savedEnabled)
             _sidebarViewModel.UsePulse = true;
 
-        // Persist toggle changes.
+        // Persist toggle changes and push status bar updates.
         _sidebarViewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(PulseSidebarViewModel.UsePulse))
                 context.Settings.Set("usePulse", _sidebarViewModel.UsePulse);
+
+            if (e.PropertyName == nameof(PulseSidebarViewModel.StatusBarText))
+                context.UpdateStatusBarItem("pulse-status", _sidebarViewModel.StatusBarText);
         };
 
         context.Logger.Info("Pulse plugin activated", "Pulse");
