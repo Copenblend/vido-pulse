@@ -27,3 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `PulseTCodeMapper` — hybrid beat-to-position mapper: binary-search beat lookup, upstroke/downstroke waveform with quadratic easing, amplitude and beat-strength intensity scaling, configurable stroke range (5–95)
 - `PulseEngine` — central state machine coordinator (Inactive/Analyzing/Ready/Active/Error); subscribes to `VideoLoadedEvent`, `PlaybackStateChangedEvent`, and OSR2+ haptic events via `IEventBus`; publishes `SuppressFunscriptEvent`, `ExternalAxisPositionsEvent`, `ExternalBeatEvent`; registers `IExternalBeatSource` for BeatBar integration; triggers pre-analysis on media load, feeds L0 positions during playback
 - `PulseBeatSource` — `IExternalBeatSource` implementation with red heart rendering (`#c42b1c`), hollow heart indicator, SkiaSharp bezier heart paths
+- `PulseSidebarViewModel` — sidebar panel ViewModel with `INotifyPropertyChanged`; toggle, state indicator, analysis progress, BPM readout, status messages, description text; wired to PulseEngine events
+- `PulseSidebarView` — WPF sidebar panel UI: toggle switch (♥ PULSE), state dot, analysis progress bar, BPM readout, "About Pulse" description; Vido Dark Modern theme
+- `PulseConverters` — WPF value converters: `BoolToVisibilityConverter`, `StateColorToBrushConverter` (Green/Yellow/Grey/Red → brush), `FractionToPercentConverter`
+- `Resources/Styles.xaml` — Vido Dark Modern resource dictionary with `#c42b1c` Pulse accent, custom toggle switch, progress bar, scrollviewer styles
+- `FfmpegAudioDecoder` — `IAudioDecoder` implementation using FFmpeg external process; decodes to mono float32 PCM at 44100 Hz, probes duration via ffprobe, yields 100 ms chunks
+- `PulsePlugin` entry point fully wired: creates service graph, wires `IVideoEngine` events, registers sidebar panel, persists toggle state via `IPluginSettingsStore`
