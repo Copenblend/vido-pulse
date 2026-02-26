@@ -15,6 +15,7 @@ public class PulsePlugin : IVidoPlugin
     private IPluginContext? _context;
     private PulseEngine? _engine;
     private PulseSidebarViewModel? _sidebarViewModel;
+    private WaveformViewModel? _waveformViewModel;
     private AudioPreAnalysisService? _preAnalysisService;
 
     /// <inheritdoc />
@@ -46,6 +47,12 @@ public class PulsePlugin : IVidoPlugin
         context.RegisterSidebarPanel("pulse-sidebar",
             () => new PulseSidebarView { DataContext = _sidebarViewModel });
 
+        // Create waveform ViewModel and register bottom panel.
+        _waveformViewModel = new WaveformViewModel(_engine);
+
+        context.RegisterBottomPanel("pulse-waveform",
+            () => new WaveformPanelView { DataContext = _waveformViewModel });
+
         // Restore persisted toggle state.
         bool savedEnabled = context.Settings.Get("usePulse", false);
         if (savedEnabled)
@@ -71,6 +78,7 @@ public class PulsePlugin : IVidoPlugin
             _context.VideoEngine.SeekCompleted -= OnSeekCompleted;
         }
 
+        _waveformViewModel?.Dispose();
         _sidebarViewModel?.Dispose();
         _engine?.Dispose();
         _preAnalysisService?.Dispose();
@@ -79,6 +87,7 @@ public class PulsePlugin : IVidoPlugin
         _context = null;
         _engine = null;
         _sidebarViewModel = null;
+        _waveformViewModel = null;
         _preAnalysisService = null;
     }
 
@@ -90,6 +99,7 @@ public class PulsePlugin : IVidoPlugin
     private void OnPositionChanged(TimeSpan position)
     {
         _engine?.OnPositionChanged(position.TotalMilliseconds);
+        _waveformViewModel?.UpdateTime(position.TotalSeconds);
     }
 
     private void OnSeekCompleted()
