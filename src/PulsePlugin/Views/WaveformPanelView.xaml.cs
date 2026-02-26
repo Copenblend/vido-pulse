@@ -84,12 +84,21 @@ public partial class WaveformPanelView : UserControl
         {
             case nameof(WaveformViewModel.IsActive):
             case nameof(WaveformViewModel.FullWaveform):
-                UpdateEmptyState();
+                DispatchIfNeeded(UpdateEmptyState);
                 break;
             case nameof(WaveformViewModel.CurrentBpm):
-                UpdateBpmReadout();
+                DispatchIfNeeded(UpdateBpmReadout);
                 break;
         }
+    }
+
+    /// <summary>Run an action on the UI thread. If already on the UI thread, run directly.</summary>
+    private void DispatchIfNeeded(Action action)
+    {
+        if (Dispatcher.CheckAccess())
+            action();
+        else
+            Dispatcher.BeginInvoke(action);
     }
 
     private void UpdateEmptyState()
