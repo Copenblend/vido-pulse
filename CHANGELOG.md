@@ -15,3 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `package.ps1` for local build, packaging, and deployment
 - GitHub Actions CI/CD workflow (`release.yml`)
 - xunit + Moq test project scaffold
+- `AudioRingBuffer` — lock-free SPSC ring buffer for decoded audio samples with lossy overflow
+- `AmplitudeTracker` — RMS envelope follower with configurable window, mono downmix, and byte-buffer conversion
+- Domain models: `BeatEvent`, `BeatMap`, `BpmEstimate`, `PulseAnalysisResult`, `PulseState`
+- `SyntheticAudioGenerator` test utility for click tracks, sine waves, silence, and white noise
+- Thread-safety stress tests for concurrent producer/consumer, overflow, and rapid clear scenarios
