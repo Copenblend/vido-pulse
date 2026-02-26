@@ -1,0 +1,29 @@
+<UserControl x:Class="PulsePlugin.Views.BeatRateComboBox"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Resources/Styles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+        <TextBlock Text="&#x2665;"
+                   Foreground="{StaticResource AccentBrush}"
+                   FontSize="12"
+                   VerticalAlignment="Center"
+                   Margin="4,0,4,0"
+                   ToolTip="Pulse Beat Rate" />
+
+        <ComboBox Style="{StaticResource PulseComboBoxStyle}"
+                  ItemContainerStyle="{StaticResource PulseComboBoxItemStyle}"
+                  ItemsSource="{Binding BeatRateOptions}"
+                  SelectedIndex="{Binding SelectedBeatRateIndex, Mode=TwoWay}"
+                  Width="130"
+                  ToolTip="Pulse Beat Rate" />
+    </StackPanel>
+</UserControl>

@@ -91,8 +91,12 @@ public class PulseTCodeMapperTests
         double beatInterval = 500;
         double peakTime = beatInterval * 0.4; // end of upstroke
 
-        double posHigh = _mapper.MapToPosition(map, peakTime * 0.99, 1.0);
-        double posLow = _mapper.MapToPosition(map, peakTime * 0.99, 0.0);
+        // Use separate mapper instances to avoid smoothing interference.
+        var mapperHigh = new PulseTCodeMapper();
+        var mapperLow = new PulseTCodeMapper();
+
+        double posHigh = mapperHigh.MapToPosition(map, peakTime * 0.99, 1.0);
+        double posLow = mapperLow.MapToPosition(map, peakTime * 0.99, 0.0);
 
         // Full amplitude should produce a wider stroke than zero amplitude.
         Assert.True(posHigh > posLow,

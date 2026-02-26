@@ -164,12 +164,12 @@ public class BeatBarIntegrationTests : IDisposable
     }
 
     [Fact]
-    public void BeatSource_IsAvailable_FalseBeforeAnalysis()
+    public void BeatSource_IsAvailable_TrueImmediatelyOnEnable()
     {
         _engine.SetEnabled(true);
 
         Assert.Single(_registeredBeatSources);
-        Assert.False(_registeredBeatSources[0].IsAvailable);
+        Assert.True(_registeredBeatSources[0].IsAvailable);
     }
 
     // ════════════════════════════════════════════════

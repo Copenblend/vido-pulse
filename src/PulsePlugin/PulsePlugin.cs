@@ -1,3 +1,4 @@
+using System.Windows;
 using PulsePlugin.Services;
 using PulsePlugin.ViewModels;
 using PulsePlugin.Views;
@@ -17,6 +18,7 @@ public class PulsePlugin : IVidoPlugin
     private PulseSidebarViewModel? _sidebarViewModel;
     private WaveformViewModel? _waveformViewModel;
     private AudioPreAnalysisService? _preAnalysisService;
+    private UIElement? _beatRateControl;
 
     /// <inheritdoc />
     public void Activate(IPluginContext context)
@@ -53,24 +55,46 @@ public class PulsePlugin : IVidoPlugin
         context.RegisterBottomPanel("pulse-waveform",
             () => new WaveformPanelView { DataContext = _waveformViewModel });
 
+        // Register control bar beat rate selector (visibility driven programmatically).
+        context.RegisterControlBarItem("pulse-beat-rate",
+            () =>
+            {
+                var view = new BeatRateComboBox { DataContext = _sidebarViewModel };
+                view.Visibility = _sidebarViewModel!.UsePulse ? Visibility.Visible : Visibility.Collapsed;
+                _beatRateControl = view;
+                return view;
+            });
+
         // Register status bar item.
         context.RegisterStatusBarItem("pulse-status",
             () => _sidebarViewModel.StatusBarText);
+
+        // Wire PropertyChanged BEFORE restoring settings so visibility and
+        // persistence handlers are active when the initial values are applied.
+        _sidebarViewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PulseSidebarViewModel.UsePulse))
+            {
+                context.Settings.Set("usePulse", _sidebarViewModel.UsePulse);
+                if (_beatRateControl is not null)
+                    _beatRateControl.Visibility = _sidebarViewModel.UsePulse ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (e.PropertyName == nameof(PulseSidebarViewModel.SelectedBeatRateIndex))
+                context.Settings.Set("beatRateIndex", _sidebarViewModel.SelectedBeatRateIndex);
+
+            if (e.PropertyName == nameof(PulseSidebarViewModel.StatusBarText))
+                context.UpdateStatusBarItem("pulse-status", _sidebarViewModel.StatusBarText);
+        };
 
         // Restore persisted toggle state.
         bool savedEnabled = context.Settings.Get("usePulse", false);
         if (savedEnabled)
             _sidebarViewModel.UsePulse = true;
 
-        // Persist toggle changes and push status bar updates.
-        _sidebarViewModel.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(PulseSidebarViewModel.UsePulse))
-                context.Settings.Set("usePulse", _sidebarViewModel.UsePulse);
-
-            if (e.PropertyName == nameof(PulseSidebarViewModel.StatusBarText))
-                context.UpdateStatusBarItem("pulse-status", _sidebarViewModel.StatusBarText);
-        };
+        // Restore persisted beat rate.
+        int savedBeatRate = context.Settings.Get("beatRateIndex", 0);
+        _sidebarViewModel.SelectedBeatRateIndex = Math.Clamp(savedBeatRate, 0, 3);
 
         context.Logger.Info("Pulse plugin activated", "Pulse");
     }

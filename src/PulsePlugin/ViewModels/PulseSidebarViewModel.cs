@@ -20,6 +20,7 @@ internal sealed class PulseSidebarViewModel : INotifyPropertyChanged, IDisposabl
     private string _statusMessage = string.Empty;
     private string _statusBarText = "\u2665 Pulse: Off";
     private string? _errorMessage;
+    private int _selectedBeatRateIndex;
     private bool _disposed;
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -132,6 +133,33 @@ internal sealed class PulseSidebarViewModel : INotifyPropertyChanged, IDisposabl
         PulseState.Error => "Red",
         _ => "Grey"
     };
+
+    // ── Beat Rate ──
+
+    /// <summary>Display labels for the beat rate ComboBox.</summary>
+    public static IReadOnlyList<string> BeatRateOptions { get; } = new[]
+    {
+        "Every Beat",
+        "Every 2nd Beat",
+        "Every 3rd Beat",
+        "Every 4th Beat"
+    };
+
+    /// <summary>
+    /// Selected beat rate index (0 = every beat, 1 = every 2nd, etc.).
+    /// Maps to engine BeatDivisor = index + 1.
+    /// </summary>
+    public int SelectedBeatRateIndex
+    {
+        get => _selectedBeatRateIndex;
+        set
+        {
+            if (_selectedBeatRateIndex == value) return;
+            _selectedBeatRateIndex = value;
+            OnPropertyChanged();
+            _engine.BeatDivisor = value + 1;
+        }
+    }
 
     /// <summary>Description text explaining Pulse behaviour.</summary>
     public string Description =>
