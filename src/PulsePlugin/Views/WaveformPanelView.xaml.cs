@@ -1,8 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
-using PulsePlugin.Models;
 using PulsePlugin.ViewModels;
 using SkiaSharp;
 using SkiaSharp.Views.Desktop;
@@ -28,8 +26,6 @@ public partial class WaveformPanelView : UserControl
     private static readonly SKColor TextSecondary = SKColor.Parse("#808080");
     private static readonly SKColor WaveformColor = SKColor.Parse("#4EC9B0");
     private static readonly SKColor WaveformFill = SKColor.Parse("#264EC9B0"); // 15% alpha
-    private static readonly SKColor BeatTickColor = SKColor.Parse("#c42b1c");
-    private static readonly SKColor BeatTickFaint = SKColor.Parse("#40c42b1c"); // 25% alpha
     private static readonly SKColor CursorColor = SKColors.White;
     private static readonly SKColor GridLineColor = SKColor.Parse("#2A2A2A");
     private static readonly SKColor BpmColor = SKColor.Parse("#DCDCAA");
@@ -54,7 +50,6 @@ public partial class WaveformPanelView : UserControl
         }
 
         DataContextChanged += OnDataContextChanged;
-        CompositionTarget.Rendering += OnRendering;
     }
 
     // ── DataContext wiring ──
@@ -123,16 +118,7 @@ public partial class WaveformPanelView : UserControl
 
     private void OnRepaintRequested()
     {
-        // SkiaSharp invalidation must happen on UI thread;
-        // CompositionTarget.Rendering will pick it up.
-    }
-
-    // ── Render loop (~60 fps via CompositionTarget) ──
-
-    private void OnRendering(object? sender, EventArgs e)
-    {
-        if (_viewModel?.IsActive == true && IsVisible)
-            _skiaCanvas?.InvalidateVisual();
+        DispatchIfNeeded(() => _skiaCanvas?.InvalidateVisual());
     }
 
     // ── Paint surface ──
@@ -147,7 +133,6 @@ public partial class WaveformPanelView : UserControl
             return;
 
         var waveform = _viewModel.FullWaveform;
-        var beats = _viewModel.AllBeats;
         var currentTime = _viewModel.CurrentTimeSeconds;
         var totalDuration = _viewModel.TotalDurationSeconds;
         var windowDuration = _viewModel.WindowDurationSeconds;
@@ -164,10 +149,9 @@ public partial class WaveformPanelView : UserControl
         double windowStartTime = currentTime - (windowDuration * CursorFraction);
         double windowEndTime = windowStartTime + windowDuration;
 
-        // Draw order: grid → waveform → beat ticks → cursor → time labels
+        // Draw order: grid → waveform → cursor → time labels
         DrawGridLines(canvas, width, height, windowStartTime, windowEndTime);
         DrawWaveform(canvas, waveform, waveformSampleRate, totalDuration, width, height, windowStartTime, windowEndTime);
-        DrawBeatTicks(canvas, beats, width, height, windowStartTime, windowEndTime);
         DrawCursor(canvas, cursorX, height);
         DrawTimeLabels(canvas, width, height, windowStartTime, windowEndTime);
     }
@@ -292,59 +276,6 @@ public partial class WaveformPanelView : UserControl
             }
         }
         canvas.DrawPath(bottomPath, linePaint);
-    }
-
-    private static void DrawBeatTicks(SKCanvas canvas, IReadOnlyList<BeatEvent>? beats,
-        float width, float height, double windowStartTime, double windowEndTime)
-    {
-        if (beats == null || beats.Count == 0) return;
-
-        double windowDuration = windowEndTime - windowStartTime;
-        double windowStartMs = windowStartTime * 1000.0;
-        double windowEndMs = windowEndTime * 1000.0;
-
-        // Binary search for first visible beat
-        int lo = 0, hi = beats.Count - 1;
-        while (lo < hi)
-        {
-            int mid = (lo + hi) / 2;
-            if (beats[mid].TimestampMs < windowStartMs)
-                lo = mid + 1;
-            else
-                hi = mid;
-        }
-
-        using var strongPaint = new SKPaint
-        {
-            Color = BeatTickColor,
-            StrokeWidth = 1.5f,
-            IsAntialias = false
-        };
-
-        using var faintPaint = new SKPaint
-        {
-            Color = BeatTickFaint,
-            StrokeWidth = 1f,
-            IsAntialias = false
-        };
-
-        for (int i = lo; i < beats.Count; i++)
-        {
-            var beat = beats[i];
-            if (beat.TimestampMs > windowEndMs) break;
-
-            float x = (float)((beat.TimestampMs / 1000.0 - windowStartTime) / windowDuration * width);
-
-            // Strong beats get full-height prominent line; weak beats get faint
-            if (beat.Strength >= 0.5)
-            {
-                canvas.DrawLine(x, 0, x, height, strongPaint);
-            }
-            else
-            {
-                canvas.DrawLine(x, height * 0.2f, x, height * 0.8f, faintPaint);
-            }
-        }
     }
 
     private static void DrawCursor(SKCanvas canvas, float cursorX, float height)

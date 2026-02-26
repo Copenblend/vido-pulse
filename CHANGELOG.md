@@ -40,3 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `PulseBeatSourceTests` — rendering contract tests: heart pixel output verification, hollow indicator transparency, varied sizes/progress values, non-SKCanvas graceful handling
 - Backward-compatibility tests: generic event contract validation (`IExternalBeatSource` implementable by any plugin), no haptic events when Pulse disabled, PulsePlugin entry-point wiring verification
 - **Fix**: Error message race in `PulseSidebarViewModel` — `ErrorOccurred` now fires before `StateChanged` in `PulseEngine.OnAnalysisFailed`, and sidebar no longer clears error message on Error state transition
+- `StatusBarText` property on `PulseSidebarViewModel` — compact status string for status bar display: `♥ Pulse: Off`, `♥ Pulse: Analyzing...`, `♥ Pulse: Ready`, `♥ Pulse: Active {BPM} BPM`, `♥ Pulse: Error`
+- Status bar registration in `PulsePlugin.cs` — registers `pulse-status` contribution, pushes updates on `StatusBarText` PropertyChanged
+- Removed beat tick red lines from waveform bottom panel — waveform now renders only the audio envelope, cursor, and time labels
+- Sidebar icon now points to `Pulse-plugin.png` (fixed missing `Assets/Icons/sidebar-icon.png` reference in `plugin.json`)
+- `README.md` — full plugin documentation: features, requirements, installation, getting started, sidebar panel, waveform panel, status bar, settings, architecture overview
+- Heartbeat ECG sidebar icon (`Assets/Icons/sidebar-icon.png`) — white heartbeat line on transparent background, matching OSR2+ icon style
+- **Fix**: BeatBar mode not appearing — `PulseEngine.OnAnalysisComplete` now re-publishes `ExternalBeatSourceRegistration` after setting `IsAvailable = true`, so `BeatBarViewModel.RebuildAvailableModes()` includes the Pulse mode
+- **Fix**: UI lag — replaced `CompositionTarget.Rendering` continuous 60fps render loop in `WaveformPanelView` with event-driven invalidation via `RepaintRequested`; canvas only repaints when playback position changes or waveform data updates
