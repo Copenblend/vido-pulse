@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <PluginVersion>1.0.0</PluginVersion>
+  </PropertyGroup>
+  <PropertyGroup>
+    <VidoCoreVersion>0.9.0</VidoCoreVersion>
+    <VidoHapticsVersion>1.0.0</VidoHapticsVersion>
+    <SkiaSharpVersion>2.*</SkiaSharpVersion>
+    <SkiaSharpViewsWpfVersion>2.*</SkiaSharpViewsWpfVersion>
+  </PropertyGroup>
+  <PropertyGroup>
+    <MicrosoftNetTestSdkVersion>17.*</MicrosoftNetTestSdkVersion>
+    <XunitVersion>2.*</XunitVersion>
+    <XunitRunnerVersion>2.*</XunitRunnerVersion>
+    <CoverletVersion>6.*</CoverletVersion>
+    <MoqVersion>4.*</MoqVersion>
+  </PropertyGroup>
+</Project>

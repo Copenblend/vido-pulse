@@ -1,0 +1,138 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release tag (e.g. v1.0.0). Leave empty to use version from Directory.Build.props."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Release
+    runs-on: windows-latest
+
+    steps:
+      # ─── Checkout ───────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ─── Setup .NET ─────────────────────────────────────────
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      # ─── Restore & Test ─────────────────────────────────────
+      - name: Restore dependencies
+        run: dotnet restore src/PulsePlugin/PulsePlugin.csproj
+
+      - name: Restore test dependencies
+        run: dotnet restore tests/PulsePlugin.Tests/PulsePlugin.Tests.csproj
+
+      - name: Run tests
+        run: dotnet test tests/PulsePlugin.Tests/PulsePlugin.Tests.csproj --no-restore --configuration Release
+
+      # ─── Determine Version ─────────────────────────────────
+      - name: Determine release version
+        id: version
+        shell: pwsh
+        run: |
+          [xml]$buildProps = Get-Content "Directory.Build.props"
+          $version = ($buildProps.Project.PropertyGroup.PluginVersion | Where-Object { $_ } | Select-Object -First 1)
+          if (-not $version) { throw "PluginVersion not found in Directory.Build.props" }
+
+          if ("${{ github.event_name }}" -eq "push") {
+            $tagName = "${{ github.ref_name }}"
+          } elseif ("${{ inputs.tag_name }}") {
+            $tagName = "${{ inputs.tag_name }}"
+          } else {
+            $tagName = "v$version"
+          }
+
+          $zipName = "vido-pulse-$version.zip"
+
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "tag_name=$tagName" >> $env:GITHUB_OUTPUT
+          echo "zip_name=$zipName" >> $env:GITHUB_OUTPUT
+
+          Write-Host "Version: $version"
+          Write-Host "Tag: $tagName"
+          Write-Host "Zip: $zipName"
+
+      # ─── Build & Package ───────────────────────────────────
+      - name: Publish plugin
+        shell: pwsh
+        run: |
+          $projectDir = "src/PulsePlugin"
+          $publishDir = "publish"
+          $pluginId   = "com.vido.pulse"
+          $stageDir   = "stage/$pluginId"
+          $zipPath    = "${{ steps.version.outputs.zip_name }}"
+
+          # Publish
+          dotnet publish "$projectDir/PulsePlugin.csproj" -c Release -o $publishDir --nologo
+          if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed' }
+
+          # Stage
+          New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+
+          Get-ChildItem "$publishDir/*" -Recurse |
+              Where-Object { $_.Name -ne 'Vido.Core.dll' } |
+              ForEach-Object {
+                  $rel = $_.FullName.Substring((Resolve-Path $publishDir).Path.Length + 1)
+                  $dest = Join-Path $stageDir $rel
+                  $destDir = Split-Path $dest -Parent
+                  if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
+                  Copy-Item $_.FullName $dest
+              }
+
+          Copy-Item "$projectDir/plugin.json" $stageDir
+
+          # Copy plugin icon
+          if (Test-Path "Pulse-plugin.png") {
+              Copy-Item "Pulse-plugin.png" $stageDir
+          }
+
+          if (Test-Path "Assets") {
+              Copy-Item "Assets" "$stageDir/Assets" -Recurse
+          }
+
+          foreach ($file in @('README.md', 'CHANGELOG.md')) {
+              if (Test-Path $file) { Copy-Item $file $stageDir }
+          }
+
+          # Zip
+          Compress-Archive -Path "stage/*" -DestinationPath $zipPath -Force
+
+          # Cleanup
+          Remove-Item "stage" -Recurse -Force
+
+      # ─── Verify Artifact ───────────────────────────────────
+      - name: Verify build artifact
+        shell: pwsh
+        run: |
+          $zip = "${{ steps.version.outputs.zip_name }}"
+          if (-not (Test-Path $zip)) { throw "Plugin zip not found: $zip" }
+          $size = [math]::Round((Get-Item $zip).Length / 1MB, 1)
+          Write-Host "Plugin zip: $size MB"
+
+      # ─── Create GitHub Release ──────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag_name }}
+          name: Pulse Plugin ${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.tag_name, '-') }}
+          generate_release_notes: true
+          files: ${{ steps.version.outputs.zip_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
