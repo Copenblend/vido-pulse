@@ -1,0 +1,73 @@
+{
+  "id": "com.vido.pulse",
+  "name": "pulse",
+  "displayName": "Pulse",
+  "version": "1.0.0",
+  "description": "Audio-to-haptics beat sync — pre-analyzes audio to detect beats and generate TCode haptic commands. Works on any video with audio, no funscript required.",
+  "author": "Vido",
+  "license": "MIT",
+  "entryPoint": "PulsePlugin.dll",
+  "pluginClass": "PulsePlugin.PulsePlugin",
+  "minVidoVersion": "0.9.0",
+  "repository": "https://github.com/Copenblend/vido-pulse",
+  "tags": ["pulse", "audio", "beat", "haptics", "rhythm", "tcode"],
+  "icon": "Pulse-plugin.png",
+  "dependencies": [
+    {
+      "id": "com.vido.osr2-plus",
+      "minVersion": "4.0.0"
+    }
+  ],
+  "contributes": {
+    "sidebar": [
+      {
+        "id": "pulse-sidebar",
+        "title": "Pulse",
+        "icon": "Assets/Icons/sidebar-icon.png",
+        "order": 300
+      }
+    ],
+    "bottomPanel": [
+      {
+        "id": "pulse-waveform",
+        "title": "Pulse Waveform",
+        "order": 300
+      }
+    ],
+    "statusBar": [
+      {
+        "id": "pulse-status",
+        "name": "Pulse",
+        "position": "right",
+        "order": 600
+      }
+    ],
+    "settings": [
+      {
+        "id": "beatSensitivity",
+        "type": "number",
+        "default": 1.5,
+        "title": "Beat Sensitivity",
+        "description": "Onset detection threshold multiplier. Higher = fewer beats detected. Range: 0.5–5.0",
+        "section": "Detection"
+      },
+      {
+        "id": "enableBpmPhaseLock",
+        "type": "boolean",
+        "default": true,
+        "title": "BPM Phase Lock",
+        "description": "When enabled, quantizes detected beats to the estimated BPM grid for more consistent rhythm. Disable for non-rhythmic content.",
+        "section": "Detection"
+      },
+      {
+        "id": "waveformWindowDuration",
+        "type": "enum",
+        "default": "30",
+        "title": "Waveform Window",
+        "description": "Duration of the visible waveform window in seconds.",
+        "enumValues": ["30", "60", "120", "300"],
+        "section": "Visualizer"
+      }
+    ]
+  }
+}
