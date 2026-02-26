@@ -136,7 +136,8 @@ internal sealed class PulseSidebarViewModel : INotifyPropertyChanged, IDisposabl
     private void OnEngineStateChanged(PulseState newState)
     {
         State = newState;
-        _errorMessage = null;
+        if (newState != PulseState.Error)
+            _errorMessage = null;
         UpdateStatusMessage();
     }
 

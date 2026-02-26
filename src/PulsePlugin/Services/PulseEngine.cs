@@ -404,11 +404,14 @@ internal sealed class PulseEngine : IDisposable
             stateChange = TransitionTo(PulseState.Error);
         }
 
+        _logger.Error($"Analysis failed: {ex.Message}", LogSource);
+
+        // Fire ErrorOccurred before StateChanged so subscribers (e.g. sidebar VM)
+        // have the error message available when they receive the state transition.
+        ErrorOccurred?.Invoke(ex.Message);
+
         if (stateChange.HasValue)
             StateChanged?.Invoke(stateChange.Value);
-
-        _logger.Error($"Analysis failed: {ex.Message}", LogSource);
-        ErrorOccurred?.Invoke(ex.Message);
     }
 
     private void OnAnalysisProgressUpdated(double progress)
