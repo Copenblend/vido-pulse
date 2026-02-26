@@ -38,6 +38,8 @@ internal sealed class PulseEngine : IDisposable
     private PulseState _state = PulseState.Inactive;
     private bool _enabled;
     private BeatMap? _currentBeatMap;
+    private BeatMap? _effectiveBeatMap; // filtered by beat divisor
+    private int _beatDivisor = 1;
     private string? _currentMediaPath;
     private int _lastPublishedBeatIndex = -1;
     private bool _isPlaying;
@@ -60,6 +62,27 @@ internal sealed class PulseEngine : IDisposable
     /// <summary>Current BPM from the pre-analyzed beat map.</summary>
     public double CurrentBpm { get { lock (_lock) return _currentBeatMap?.Bpm ?? 0; } }
 
+    /// <summary>
+    /// Beat divisor — 1 = every beat, 2 = every other beat, 3 = every 3rd, 4 = every 4th.
+    /// Controls which beats are used for both TCode output and BeatBar display.
+    /// </summary>
+    public int BeatDivisor
+    {
+        get { lock (_lock) return _beatDivisor; }
+        set
+        {
+            lock (_lock)
+            {
+                var clamped = Math.Clamp(value, 1, 4);
+                if (_beatDivisor == clamped) return;
+                _beatDivisor = clamped;
+                RebuildEffectiveBeatMap();
+                _tCodeMapper.Reset();
+            }
+            BeatDivisorChanged?.Invoke(BeatDivisor);
+        }
+    }
+
     /// <summary>The registered external beat source for BeatBar integration.</summary>
     internal PulseBeatSource BeatSource => _beatSource;
 
@@ -76,6 +99,9 @@ internal sealed class PulseEngine : IDisposable
 
     /// <summary>Fires when an error occurs (message string).</summary>
     public event Action<string>? ErrorOccurred;
+
+    /// <summary>Fires when the beat divisor changes.</summary>
+    public event Action<int>? BeatDivisorChanged;
 
     // ── Constructor ──
 
@@ -141,6 +167,11 @@ internal sealed class PulseEngine : IDisposable
             if (enabled)
             {
                 doEnable = true;
+                // Mark beat source available immediately so the BeatBar dropdown
+                // shows "Off | Pulse" (hiding OnPeak/OnValley) as soon as the
+                // toggle is turned on, not only after analysis completes.
+                _beatSource.IsAvailable = true;
+
                 if (_currentMediaPath != null)
                 {
                     mediaToAnalyze = _currentMediaPath;
@@ -216,20 +247,25 @@ internal sealed class PulseEngine : IDisposable
 
         if (beatMap == null) return;
 
+        // Use the divisor-filtered beat map for both TCode and BeatBar.
+        BeatMap? effectiveMap;
+        lock (_lock) { effectiveMap = _effectiveBeatMap; }
+        effectiveMap ??= beatMap;
+
         // Drain live audio and compute amplitude.
         _liveAmplitudeService.ProcessAvailable(positionMs);
         double amplitude = _liveAmplitudeService.CurrentAmplitude;
 
-        // Map to L0 axis position.
-        double l0 = _tCodeMapper.MapToPosition(beatMap, positionMs, amplitude);
+        // Map to L0 axis position using effective (divisor-filtered) beats.
+        double l0 = _tCodeMapper.MapToPosition(effectiveMap, positionMs, amplitude);
 
         _eventBus.Publish(new ExternalAxisPositionsEvent
         {
             Positions = new Dictionary<string, double> { ["L0"] = l0 }
         });
 
-        // Publish beats in the BeatBar lookahead window.
-        PublishBeatEvents(beatMap, positionMs);
+        // Publish beats in the BeatBar lookahead window (divisor-filtered).
+        PublishBeatEvents(effectiveMap, positionMs);
     }
 
     /// <summary>
@@ -369,6 +405,7 @@ internal sealed class PulseEngine : IDisposable
             if (!_enabled) return;
 
             _currentBeatMap = beatMap;
+            RebuildEffectiveBeatMap();
             _beatSource.IsAvailable = true;
             _lastPublishedBeatIndex = -1;
 
@@ -474,5 +511,34 @@ internal sealed class PulseEngine : IDisposable
         if (_state == newState) return null;
         _state = newState;
         return newState;
+    }
+
+    /// <summary>
+    /// Rebuilds the effective beat map by applying the current divisor filter.
+    /// Must be called inside <see cref="_lock"/>.
+    /// </summary>
+    private void RebuildEffectiveBeatMap()
+    {
+        if (_currentBeatMap == null || _beatDivisor <= 1)
+        {
+            _effectiveBeatMap = _currentBeatMap;
+            return;
+        }
+
+        var filtered = new List<BeatEvent>();
+        for (int i = 0; i < _currentBeatMap.Beats.Count; i += _beatDivisor)
+            filtered.Add(_currentBeatMap.Beats[i]);
+
+        _effectiveBeatMap = new BeatMap
+        {
+            Beats = filtered,
+            Bpm = _currentBeatMap.Bpm / _beatDivisor,
+            BpmConfidence = _currentBeatMap.BpmConfidence,
+            DurationMs = _currentBeatMap.DurationMs,
+            WaveformSamples = _currentBeatMap.WaveformSamples,
+            WaveformSampleRate = _currentBeatMap.WaveformSampleRate
+        };
+
+        _lastPublishedBeatIndex = -1;
     }
 }

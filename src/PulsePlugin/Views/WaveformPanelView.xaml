@@ -40,15 +40,11 @@
                            VerticalAlignment="Center"
                            Margin="0,0,6,0" />
                 <ComboBox x:Name="WindowDurationCombo"
+                          Style="{StaticResource PulseComboBoxStyle}"
+                          ItemContainerStyle="{StaticResource PulseComboBoxItemStyle}"
                           ItemsSource="{x:Static vm:WaveformViewModel.WindowDurationLabels}"
                           SelectedIndex="{Binding WindowDurationIndex}"
-                          Width="70"
-                          FontSize="11" FontFamily="Segoe UI"
-                          Background="#333333"
-                          Foreground="#CCCCCC"
-                          BorderBrush="#3C3C3C"
-                          BorderThickness="1"
-                          Padding="4,2" />
+                          Width="70" />
             </StackPanel>
         </DockPanel>
 

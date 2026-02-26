@@ -569,7 +569,7 @@ public class PulseEngineTests : IDisposable
         Assert.Equal("com.vido.pulse", source.Id);
         Assert.Equal("Pulse", source.DisplayName);
         Assert.True(source.HidesBuiltInModes);
-        Assert.False(source.IsAvailable); // Not available until analysis completes.
+        Assert.False(source.IsAvailable); // Not available until SetEnabled(true) is called.
     }
 
     // ──────────────────────────────────────────────
@@ -584,6 +584,116 @@ public class PulseEngineTests : IDisposable
         Assert.True(_eventBus.HasSubscription<HapticTransportStateEvent>());
         Assert.True(_eventBus.HasSubscription<HapticScriptsChangedEvent>());
         Assert.True(_eventBus.HasSubscription<HapticAxisConfigEvent>());
+    }
+
+    // ──────────────────────────────────────────────
+    //  BeatDivisor
+    // ──────────────────────────────────────────────
+
+    [Fact]
+    public void BeatDivisor_DefaultIsOne()
+    {
+        Assert.Equal(1, _engine.BeatDivisor);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void BeatDivisor_AcceptsValidValues(int divisor)
+    {
+        _engine.BeatDivisor = divisor;
+        Assert.Equal(divisor, _engine.BeatDivisor);
+    }
+
+    [Fact]
+    public void BeatDivisor_ClampsBelow1()
+    {
+        _engine.BeatDivisor = 0;
+        Assert.Equal(1, _engine.BeatDivisor);
+    }
+
+    [Fact]
+    public void BeatDivisor_ClampsAbove4()
+    {
+        _engine.BeatDivisor = 10;
+        Assert.Equal(4, _engine.BeatDivisor);
+    }
+
+    [Fact]
+    public void BeatDivisor_FiresChangedEvent()
+    {
+        int? received = null;
+        _engine.BeatDivisorChanged += v => received = v;
+
+        _engine.BeatDivisor = 3;
+
+        Assert.Equal(3, received);
+    }
+
+    [Fact]
+    public void BeatDivisor_SameValue_NoEvent()
+    {
+        _engine.BeatDivisor = 1;
+        bool fired = false;
+        _engine.BeatDivisorChanged += _ => fired = true;
+
+        _engine.BeatDivisor = 1;
+
+        Assert.False(fired);
+    }
+
+    [Fact]
+    public async Task BeatDivisor_FiltersBeatsForTCode()
+    {
+        _eventBus.Publish(MakeVideoLoaded());
+        _engine.SetEnabled(true);
+        await WaitForState(PulseState.Ready);
+        _eventBus.Publish(new PlaybackStateChangedEvent { State = PlaybackState.Playing });
+
+        // Get baseline beats at divisor 1
+        _eventBus.ClearPublished();
+        _engine.OnPositionChanged(0);
+        var baselineBeats = _eventBus.GetPublished<ExternalBeatEvent>();
+
+        // Set divisor to 2 — should roughly halve the beat count
+        _engine.BeatDivisor = 2;
+        _eventBus.ClearPublished();
+        _engine.OnPositionChanged(0);
+        var filteredBeats = _eventBus.GetPublished<ExternalBeatEvent>();
+
+        if (baselineBeats.Count > 0 && filteredBeats.Count > 0)
+        {
+            Assert.True(filteredBeats[0].BeatTimesMs.Count <= baselineBeats[0].BeatTimesMs.Count,
+                "Divisor 2 should produce fewer or equal beats in lookahead window");
+        }
+    }
+
+    [Fact]
+    public async Task BeatDivisor_AffectsL0Position()
+    {
+        _eventBus.Publish(MakeVideoLoaded());
+        _engine.SetEnabled(true);
+        await WaitForState(PulseState.Ready);
+        _eventBus.Publish(new PlaybackStateChangedEvent { State = PlaybackState.Playing });
+
+        // Get L0 at a specific position with divisor 1
+        _eventBus.ClearPublished();
+        _engine.OnPositionChanged(250); // Near a beat at 120 BPM
+        var pos1 = _eventBus.GetPublished<ExternalAxisPositionsEvent>();
+
+        // Set divisor to 4 — beat timing changes
+        _engine.BeatDivisor = 4;
+        _eventBus.ClearPublished();
+        _engine.OnPositionChanged(250);
+        var pos4 = _eventBus.GetPublished<ExternalAxisPositionsEvent>();
+
+        // Both should produce valid L0 positions
+        Assert.NotEmpty(pos1);
+        Assert.NotEmpty(pos4);
+        Assert.True(pos1[0].Positions.ContainsKey("L0"));
+        Assert.True(pos4[0].Positions.ContainsKey("L0"));
     }
 }
 

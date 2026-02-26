@@ -34,6 +34,13 @@
         "order": 300
       }
     ],
+    "controlBar": [
+      {
+        "id": "pulse-beat-rate",
+        "tooltip": "Pulse Beat Rate",
+        "order": 45
+      }
+    ],
     "statusBar": [
       {
         "id": "pulse-status",

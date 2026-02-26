@@ -417,4 +417,59 @@ public class PulseSidebarViewModelTests : IDisposable
         // ViewModel should still show initial state.
         Assert.Equal(PulseState.Inactive, _vm.State);
     }
+
+    // ──────────────────────────────────────────────
+    //  Beat Rate
+    // ──────────────────────────────────────────────
+
+    [Fact]
+    public void BeatRateOptions_HasFourEntries()
+    {
+        Assert.Equal(4, PulseSidebarViewModel.BeatRateOptions.Count);
+    }
+
+    [Fact]
+    public void BeatRateOptions_LabelsAreCorrect()
+    {
+        Assert.Equal("Every Beat", PulseSidebarViewModel.BeatRateOptions[0]);
+        Assert.Equal("Every 2nd Beat", PulseSidebarViewModel.BeatRateOptions[1]);
+        Assert.Equal("Every 3rd Beat", PulseSidebarViewModel.BeatRateOptions[2]);
+        Assert.Equal("Every 4th Beat", PulseSidebarViewModel.BeatRateOptions[3]);
+    }
+
+    [Fact]
+    public void SelectedBeatRateIndex_DefaultIsZero()
+    {
+        Assert.Equal(0, _vm.SelectedBeatRateIndex);
+    }
+
+    [Fact]
+    public void SelectedBeatRateIndex_SetsEngineDivisor()
+    {
+        _vm.SelectedBeatRateIndex = 2; // "Every 3rd Beat"
+        Assert.Equal(3, _engine.BeatDivisor);
+    }
+
+    [Fact]
+    public void SelectedBeatRateIndex_RaisesPropertyChanged()
+    {
+        var changed = new List<string>();
+        _vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName!);
+
+        _vm.SelectedBeatRateIndex = 1;
+
+        Assert.Contains("SelectedBeatRateIndex", changed);
+    }
+
+    [Fact]
+    public void SelectedBeatRateIndex_SameValue_NoEvent()
+    {
+        _vm.SelectedBeatRateIndex = 0;
+        var raised = false;
+        _vm.PropertyChanged += (_, _) => raised = true;
+
+        _vm.SelectedBeatRateIndex = 0;
+
+        Assert.False(raised);
+    }
 }

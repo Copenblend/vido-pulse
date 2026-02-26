@@ -5,6 +5,7 @@ namespace PulsePlugin.Services;
 /// <summary>
 /// Maps pre-analyzed beats + live amplitude to L0 axis positions (0–100 scale).
 /// Hybrid mode only: beats set timing, amplitude sets intensity.
+/// Applies exponential smoothing to prevent jerky jumps when the beat divisor changes.
 /// </summary>
 internal sealed class PulseTCodeMapper
 {
@@ -27,6 +28,17 @@ internal sealed class PulseTCodeMapper
     private const double MinAmplitudeScale = 0.15;
 
     /// <summary>
+    /// Smoothing time constant in milliseconds. Controls how quickly the output
+    /// converges to the raw target after a beat-grid change. Lower = more responsive,
+    /// higher = smoother transitions. 40 ms ≈ 2–3 ticks at 60 Hz.
+    /// </summary>
+    private const double SmoothingTimeConstantMs = 40.0;
+
+    // ── Smoothing state ──
+    private double _lastPosition = RestPosition;
+    private double _lastTimeMs = -1;
+
+    /// <summary>
     /// Given the current playback position, pre-analyzed BeatMap, and live amplitude,
     /// return the desired L0 axis position on a 0–100 scale.
     /// </summary>
@@ -35,6 +47,37 @@ internal sealed class PulseTCodeMapper
     /// <param name="currentAmplitude">Live RMS amplitude (0.0–1.0) from LiveAmplitudeService.</param>
     /// <returns>L0 axis position (0–100).</returns>
     public double MapToPosition(BeatMap? beatMap, double currentTimeMs, double currentAmplitude)
+    {
+        double rawPosition = ComputeRawPosition(beatMap, currentTimeMs, currentAmplitude);
+
+        // Apply exponential smoothing to prevent jerky jumps when the beat
+        // divisor changes (the beat grid shifts and the raw target can jump
+        // to a very different phase position).
+        if (_lastTimeMs < 0)
+        {
+            // First call — no smoothing, just adopt the position.
+            _lastPosition = rawPosition;
+            _lastTimeMs = currentTimeMs;
+            return rawPosition;
+        }
+
+        double deltaMs = currentTimeMs - _lastTimeMs;
+        _lastTimeMs = currentTimeMs;
+
+        if (deltaMs <= 0)
+            return _lastPosition;
+
+        double alpha = 1.0 - Math.Exp(-deltaMs / SmoothingTimeConstantMs);
+        double smoothed = _lastPosition + alpha * (rawPosition - _lastPosition);
+        _lastPosition = smoothed;
+
+        return Math.Clamp(smoothed, MinPosition, MaxPosition);
+    }
+
+    /// <summary>
+    /// Computes the raw (unsmoothed) L0 position from the beat map and amplitude.
+    /// </summary>
+    private double ComputeRawPosition(BeatMap? beatMap, double currentTimeMs, double currentAmplitude)
     {
         if (beatMap is null || beatMap.Beats.Count == 0)
             return RestPosition;
@@ -118,10 +161,11 @@ internal sealed class PulseTCodeMapper
         return Math.Clamp(position, MinPosition, MaxPosition);
     }
 
-    /// <summary>Reset internal tracking state (e.g., on seek or media change).</summary>
+    /// <summary>Reset internal tracking state (e.g., on seek, media change, or divisor change).</summary>
     public void Reset()
     {
-        // Stateless for now — reserved for future smoothing state.
+        _lastPosition = RestPosition;
+        _lastTimeMs = -1;
     }
 
     /// <summary>
