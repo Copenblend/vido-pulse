@@ -20,3 +20,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Domain models: `BeatEvent`, `BeatMap`, `BpmEstimate`, `PulseAnalysisResult`, `PulseState`
 - `SyntheticAudioGenerator` test utility for click tracks, sine waves, silence, and white noise
 - Thread-safety stress tests for concurrent producer/consumer, overflow, and rapid clear scenarios
+- `OnsetDetector` — spectral flux beat detection with FFT, adaptive mean-based threshold, and minimum inter-onset interval enforcement
