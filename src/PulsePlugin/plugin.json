@@ -2,20 +2,20 @@
   "id": "com.vido.pulse",
   "name": "pulse",
   "displayName": "Pulse",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Audio-to-haptics beat sync — pre-analyzes audio to detect beats and generate TCode haptic commands. Works on any video with audio, no funscript required.",
   "author": "Vido",
   "license": "MIT",
   "entryPoint": "PulsePlugin.dll",
   "pluginClass": "PulsePlugin.PulsePlugin",
-  "minVidoVersion": "0.10.0",
+  "minVidoVersion": "0.12.0",
   "repository": "https://github.com/Copenblend/vido-pulse",
   "tags": ["pulse", "audio", "beat", "haptics", "rhythm", "tcode"],
   "icon": "Pulse-plugin.png",
   "dependencies": [
     {
       "id": "com.vido.osr2-plus",
-      "minVersion": "4.1.0"
+      "minVersion": "4.3.0"
     }
   ],
   "contributes": {
