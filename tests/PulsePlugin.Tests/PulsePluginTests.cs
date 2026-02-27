@@ -3,6 +3,7 @@ using Vido.Core.Events;
 using Vido.Core.Logging;
 using Vido.Core.Playback;
 using Vido.Core.Plugin;
+using Vido.Haptics;
 using Xunit;
 
 namespace PulsePlugin.Tests;
@@ -29,6 +30,8 @@ public class PulsePluginTests
         eventBus.Setup(e => e.Subscribe(It.IsAny<Action<Vido.Haptics.HapticScriptsChangedEvent>>()))
             .Returns(Mock.Of<IDisposable>());
         eventBus.Setup(e => e.Subscribe(It.IsAny<Action<Vido.Haptics.HapticAxisConfigEvent>>()))
+            .Returns(Mock.Of<IDisposable>());
+        eventBus.Setup(e => e.Subscribe(It.IsAny<Action<Vido.Haptics.SuppressFunscriptEvent>>()))
             .Returns(Mock.Of<IDisposable>());
         context.Setup(c => c.Events).Returns(eventBus.Object);
 
@@ -76,5 +79,48 @@ public class PulsePluginTests
 
         plugin.Activate(context.Object);
         plugin.Deactivate();
+    }
+
+    [Fact]
+    public void SuppressFunscript_Suppressed_ShowsPulseWaveform()
+    {
+        var context = CreateMockContext();
+        var eventBus = Mock.Get(context.Object.Events);
+
+        // Capture the SuppressFunscriptEvent handler
+        Action<SuppressFunscriptEvent>? capturedHandler = null;
+        eventBus.Setup(e => e.Subscribe(It.IsAny<Action<SuppressFunscriptEvent>>()))
+            .Callback<Action<SuppressFunscriptEvent>>(h => capturedHandler = h)
+            .Returns(Mock.Of<IDisposable>());
+
+        var plugin = new PulsePlugin();
+        plugin.Activate(context.Object);
+
+        Assert.NotNull(capturedHandler);
+
+        capturedHandler!(new SuppressFunscriptEvent { SuppressFunscripts = true });
+
+        context.Verify(c => c.RequestShowBottomPanel("pulse-waveform"), Times.Once);
+    }
+
+    [Fact]
+    public void SuppressFunscript_Unsuppressed_DoesNotShowPulseWaveform()
+    {
+        var context = CreateMockContext();
+        var eventBus = Mock.Get(context.Object.Events);
+
+        Action<SuppressFunscriptEvent>? capturedHandler = null;
+        eventBus.Setup(e => e.Subscribe(It.IsAny<Action<SuppressFunscriptEvent>>()))
+            .Callback<Action<SuppressFunscriptEvent>>(h => capturedHandler = h)
+            .Returns(Mock.Of<IDisposable>());
+
+        var plugin = new PulsePlugin();
+        plugin.Activate(context.Object);
+
+        Assert.NotNull(capturedHandler);
+
+        capturedHandler!(new SuppressFunscriptEvent { SuppressFunscripts = false });
+
+        context.Verify(c => c.RequestShowBottomPanel("pulse-waveform"), Times.Never);
     }
 }
