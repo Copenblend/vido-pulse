@@ -19,6 +19,7 @@ public class PulsePlugin : IVidoPlugin
     private WaveformViewModel? _waveformViewModel;
     private AudioPreAnalysisService? _preAnalysisService;
     private UIElement? _beatRateControl;
+    private IDisposable? _suppressSubscription;
 
     /// <inheritdoc />
     public void Activate(IPluginContext context)
@@ -99,6 +100,13 @@ public class PulsePlugin : IVidoPlugin
         int savedBeatRate = context.Settings.Get("beatRateIndex", 0);
         _sidebarViewModel.SelectedBeatRateIndex = Math.Clamp(savedBeatRate, 0, 3);
 
+        // Auto-switch bottom panel when Pulse activates
+        _suppressSubscription = context.Events.Subscribe<Vido.Haptics.SuppressFunscriptEvent>(evt =>
+        {
+            if (evt.SuppressFunscripts)
+                context.RequestShowBottomPanel("pulse-waveform");
+        });
+
         context.Logger.Info("Pulse plugin activated", "Pulse");
     }
 
@@ -112,6 +120,7 @@ public class PulsePlugin : IVidoPlugin
             _context.VideoEngine.SeekCompleted -= OnSeekCompleted;
         }
 
+        _suppressSubscription?.Dispose();
         _waveformViewModel?.Dispose();
         _sidebarViewModel?.Dispose();
         _engine?.Dispose();
