@@ -33,6 +33,69 @@ public partial class WaveformPanelView : UserControl
     /// <summary>Cursor position as fraction of the canvas width (20% from left).</summary>
     private const float CursorFraction = 0.20f;
 
+    private readonly SKPaint _gridPaint = new()
+    {
+        Color = GridLineColor,
+        StrokeWidth = 1,
+        IsAntialias = false
+    };
+
+    private readonly SKPaint _gridQuarterPaint = new()
+    {
+        Color = GridLineColor.WithAlpha(80),
+        StrokeWidth = 1,
+        IsAntialias = false
+    };
+
+    private readonly SKPaint _waveformFillPaint = new()
+    {
+        Color = WaveformFill,
+        Style = SKPaintStyle.Fill,
+        IsAntialias = true
+    };
+
+    private readonly SKPaint _waveformLinePaint = new()
+    {
+        Color = WaveformColor,
+        Style = SKPaintStyle.Stroke,
+        StrokeWidth = 1.5f,
+        IsAntialias = true
+    };
+
+    private readonly SKPaint _cursorPaint = new()
+    {
+        Color = CursorColor,
+        StrokeWidth = 2f,
+        IsAntialias = false
+    };
+
+    private readonly SKPaint _cursorTrianglePaint = new()
+    {
+        Color = CursorColor,
+        Style = SKPaintStyle.Fill,
+        IsAntialias = true
+    };
+
+    private readonly SKPaint _timeLabelPaint = new()
+    {
+        Color = TextSecondary,
+        TextSize = 10,
+        IsAntialias = true
+    };
+
+    private readonly SKPaint _timeTickPaint = new()
+    {
+        Color = GridLineColor,
+        StrokeWidth = 1,
+        IsAntialias = false
+    };
+
+    private readonly SKPath _waveformFillPath = new();
+    private readonly SKPath _waveformLinePath = new();
+    private readonly SKPath _waveformBottomPath = new();
+    private readonly SKPath _cursorTrianglePath = new();
+    private bool _isDisposed;
+
     public WaveformPanelView()
     {
         InitializeComponent();
@@ -50,6 +113,7 @@ public partial class WaveformPanelView : UserControl
         }
 
         DataContextChanged += OnDataContextChanged;
+        Unloaded += OnUnloaded;
     }
 
     // ── DataContext wiring ──
@@ -125,6 +189,9 @@ public partial class WaveformPanelView : UserControl
 
     private void OnPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
     {
+        if (_isDisposed)
+            return;
+
         var canvas = e.Surface.Canvas;
         var info = e.Info;
         canvas.Clear(BackgroundColor);
@@ -158,27 +225,19 @@ public partial class WaveformPanelView : UserControl
 
     // ── Drawing methods ──
 
-    private static void DrawGridLines(SKCanvas canvas, float width, float height,
+    private void DrawGridLines(SKCanvas canvas, float width, float height,
         double windowStartTime, double windowEndTime)
     {
-        using var paint = new SKPaint
-        {
-            Color = GridLineColor,
-            StrokeWidth = 1,
-            IsAntialias = false
-        };
-
         // Horizontal center line
         float midY = height / 2;
-        canvas.DrawLine(0, midY, width, midY, paint);
+        canvas.DrawLine(0, midY, width, midY, _gridPaint);
 
         // Horizontal quarter lines
-        paint.Color = GridLineColor.WithAlpha(80);
-        canvas.DrawLine(0, height * 0.25f, width, height * 0.25f, paint);
-        canvas.DrawLine(0, height * 0.75f, width, height * 0.75f, paint);
+        canvas.DrawLine(0, height * 0.25f, width, height * 0.25f, _gridQuarterPaint);
+        canvas.DrawLine(0, height * 0.75f, width, height * 0.75f, _gridQuarterPaint);
     }
 
-    private static void DrawWaveform(SKCanvas canvas, IReadOnlyList<float> waveform,
+    private void DrawWaveform(SKCanvas canvas, IReadOnlyList<float> waveform,
         int sampleRate, double totalDuration, float width, float height,
         double windowStartTime, double windowEndTime)
     {
@@ -196,9 +255,10 @@ public partial class WaveformPanelView : UserControl
 
         if (startSample >= endSample) return;
 
-        // Build path for the waveform envelope (mirrored)
-        using var pathFill = new SKPath();
-        using var pathLine = new SKPath();
+        _waveformFillPath.Reset();
+        _waveformLinePath.Reset();
+        _waveformBottomPath.Reset();
+
         bool pathStarted = false;
 
         // Downsample to at most ~2 points per pixel for performance
@@ -214,14 +274,14 @@ public partial class WaveformPanelView : UserControl
 
             if (!pathStarted)
             {
-                pathLine.MoveTo(x, midY - yOffset);
-                pathFill.MoveTo(x, midY - yOffset);
+                _waveformLinePath.MoveTo(x, midY - yOffset);
+                _waveformFillPath.MoveTo(x, midY - yOffset);
                 pathStarted = true;
             }
             else
             {
-                pathLine.LineTo(x, midY - yOffset);
-                pathFill.LineTo(x, midY - yOffset);
+                _waveformLinePath.LineTo(x, midY - yOffset);
+                _waveformFillPath.LineTo(x, midY - yOffset);
             }
         }
 
@@ -232,31 +292,11 @@ public partial class WaveformPanelView : UserControl
             float x = (float)((sampleTime - windowStartTime) * pixelsPerSecond);
             float amplitude = Math.Abs(waveform[i]);
             float yOffset = amplitude * maxAmplitude;
-            pathFill.LineTo(x, midY + yOffset);
+            _waveformFillPath.LineTo(x, midY + yOffset);
         }
-        pathFill.Close();
-
-        // Draw filled waveform
-        using var fillPaint = new SKPaint
-        {
-            Color = WaveformFill,
-            Style = SKPaintStyle.Fill,
-            IsAntialias = true
-        };
-        canvas.DrawPath(pathFill, fillPaint);
-
-        // Draw waveform outline
-        using var linePaint = new SKPaint
-        {
-            Color = WaveformColor,
-            Style = SKPaintStyle.Stroke,
-            StrokeWidth = 1.5f,
-            IsAntialias = true
-        };
-        canvas.DrawPath(pathLine, linePaint);
+        _waveformFillPath.Close();
 
         // Draw mirrored bottom outline
-        using var bottomPath = new SKPath();
         bool bottomStarted = false;
         for (int i = startSample; i <= endSample; i += step)
         {
@@ -267,43 +307,34 @@ public partial class WaveformPanelView : UserControl
 
             if (!bottomStarted)
             {
-                bottomPath.MoveTo(x, midY + yOffset);
+                _waveformBottomPath.MoveTo(x, midY + yOffset);
                 bottomStarted = true;
             }
             else
             {
-                bottomPath.LineTo(x, midY + yOffset);
+                _waveformBottomPath.LineTo(x, midY + yOffset);
             }
         }
-        canvas.DrawPath(bottomPath, linePaint);
+
+        canvas.DrawPath(_waveformFillPath, _waveformFillPaint);
+        canvas.DrawPath(_waveformLinePath, _waveformLinePaint);
+        canvas.DrawPath(_waveformBottomPath, _waveformLinePaint);
     }
 
-    private static void DrawCursor(SKCanvas canvas, float cursorX, float height)
+    private void DrawCursor(SKCanvas canvas, float cursorX, float height)
     {
-        using var paint = new SKPaint
-        {
-            Color = CursorColor,
-            StrokeWidth = 2f,
-            IsAntialias = false
-        };
-        canvas.DrawLine(cursorX, 0, cursorX, height, paint);
+        canvas.DrawLine(cursorX, 0, cursorX, height, _cursorPaint);
 
         // Small triangle marker at top
-        using var trianglePaint = new SKPaint
-        {
-            Color = CursorColor,
-            Style = SKPaintStyle.Fill,
-            IsAntialias = true
-        };
-        using var triangle = new SKPath();
-        triangle.MoveTo(cursorX - 4, 0);
-        triangle.LineTo(cursorX + 4, 0);
-        triangle.LineTo(cursorX, 6);
-        triangle.Close();
-        canvas.DrawPath(triangle, trianglePaint);
+        _cursorTrianglePath.Reset();
+        _cursorTrianglePath.MoveTo(cursorX - 4, 0);
+        _cursorTrianglePath.LineTo(cursorX + 4, 0);
+        _cursorTrianglePath.LineTo(cursorX, 6);
+        _cursorTrianglePath.Close();
+        canvas.DrawPath(_cursorTrianglePath, _cursorTrianglePaint);
     }
 
-    private static void DrawTimeLabels(SKCanvas canvas, float width, float height,
+    private void DrawTimeLabels(SKCanvas canvas, float width, float height,
         double windowStartTime, double windowEndTime)
     {
         double windowDuration = windowEndTime - windowStartTime;
@@ -318,29 +349,57 @@ public partial class WaveformPanelView : UserControl
             _ => 60
         };
 
-        using var paint = new SKPaint
-        {
-            Color = TextSecondary,
-            TextSize = 10,
-            IsAntialias = true
-        };
-
         double firstTick = Math.Ceiling(windowStartTime / tickInterval) * tickInterval;
         for (double t = firstTick; t <= windowEndTime; t += tickInterval)
         {
             float x = (float)((t - windowStartTime) / windowDuration * width);
 
             // Tick mark
-            using var tickPaint = new SKPaint { Color = GridLineColor, StrokeWidth = 1 };
-            canvas.DrawLine(x, height - 12, x, height, tickPaint);
+            canvas.DrawLine(x, height - 12, x, height, _timeTickPaint);
 
             // Time label
             var ts = TimeSpan.FromSeconds(Math.Max(0, t));
             string label = ts.TotalMinutes >= 1
                 ? $"{(int)ts.TotalMinutes}:{ts.Seconds:D2}"
                 : $"{ts.Seconds}s";
-            float labelWidth = paint.MeasureText(label);
-            canvas.DrawText(label, x - labelWidth / 2, height - 1, paint);
+            float labelWidth = _timeLabelPaint.MeasureText(label);
+            canvas.DrawText(label, x - labelWidth / 2, height - 1, _timeLabelPaint);
         }
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        if (_isDisposed)
+            return;
+
+        _isDisposed = true;
+
+        if (_viewModel != null)
+        {
+            _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            _viewModel.RepaintRequested -= OnRepaintRequested;
+            _viewModel = null;
+        }
+
+        DataContextChanged -= OnDataContextChanged;
+        Unloaded -= OnUnloaded;
+
+        if (_skiaCanvas != null)
+        {
+            _skiaCanvas.PaintSurface -= OnPaintSurface;
+        }
+
+        _gridPaint.Dispose();
+        _gridQuarterPaint.Dispose();
+        _waveformFillPaint.Dispose();
+        _waveformLinePaint.Dispose();
+        _cursorPaint.Dispose();
+        _cursorTrianglePaint.Dispose();
+        _timeLabelPaint.Dispose();
+        _timeTickPaint.Dispose();
+        _waveformFillPath.Dispose();
+        _waveformLinePath.Dispose();
+        _waveformBottomPath.Dispose();
+        _cursorTrianglePath.Dispose();
     }
 }

@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace PulsePlugin.Services;
 
 /// <summary>
@@ -9,6 +11,8 @@ internal sealed class LiveAmplitudeService
 {
     private readonly AudioRingBuffer _ringBuffer;
     private readonly AmplitudeTracker _tracker;
+    private readonly float[] _readBuffer = new float[ProcessChunkSize];
+    private float[] _monoBuffer = new float[4096];
 
     /// <summary>Processing chunk size — read from ring buffer in ~20ms chunks at 48kHz.</summary>
     private const int ProcessChunkSize = 960;
@@ -43,13 +47,30 @@ internal sealed class LiveAmplitudeService
     public void SubmitSamples(ReadOnlyMemory<byte> buffer, int sampleCount, int sampleRate, int channels)
     {
         if (!_running) return;
+        if (sampleRate <= 0 || channels <= 0 || sampleCount <= 0) return;
 
         _sampleRate = sampleRate;
         _channels = channels;
 
-        // Convert to mono float and write to ring buffer.
-        var mono = AmplitudeTracker.ByteBufferToMono(buffer, sampleCount, channels);
-        _ringBuffer.Write(mono);
+        ReadOnlySpan<float> interleaved = MemoryMarshal.Cast<byte, float>(buffer.Span);
+        int expectedInterleavedLength = sampleCount * channels;
+        int availableInterleavedLength = Math.Min(interleaved.Length, expectedInterleavedLength);
+        if (availableInterleavedLength <= 0)
+            return;
+
+        int monoLength = availableInterleavedLength / channels;
+        if (monoLength <= 0)
+            return;
+
+        if (_monoBuffer.Length < monoLength)
+            _monoBuffer = new float[monoLength];
+
+        AmplitudeTracker.DownmixToMono(
+            interleaved.Slice(0, monoLength * channels),
+            channels,
+            _monoBuffer.AsSpan(0, monoLength));
+
+        _ringBuffer.Write(_monoBuffer.AsSpan(0, monoLength));
     }
 
     /// <summary>
@@ -63,16 +84,15 @@ internal sealed class LiveAmplitudeService
 
         _positionMs = currentPositionMs;
 
-        var readBuffer = new float[ProcessChunkSize];
         int totalRead = 0;
 
         // Drain all available samples from the ring buffer.
         while (_ringBuffer.Available > 0)
         {
-            int read = _ringBuffer.Read(readBuffer);
+            int read = _ringBuffer.Read(_readBuffer);
             if (read == 0) break;
 
-            _tracker.Process(readBuffer.AsSpan(0, read), _positionMs, _sampleRate);
+            _tracker.ProcessInPlace(_readBuffer.AsSpan(0, read), _positionMs, _sampleRate);
             totalRead += read;
         }
 

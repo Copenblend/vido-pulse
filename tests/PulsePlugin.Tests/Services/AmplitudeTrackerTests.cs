@@ -181,6 +181,36 @@ public class AmplitudeTrackerTests
     }
 
     [Fact]
+    public void ProcessInPlace_UpdatesCurrentAmplitude()
+    {
+        var tracker = new AmplitudeTracker(windowMs: 10);
+        var sine = SyntheticAudioGenerator.SineWave(440, 100, TestConstants.SampleRate48000, amplitude: 0.75f);
+
+        tracker.ProcessInPlace(sine, 0, TestConstants.SampleRate48000);
+
+        Assert.True(tracker.CurrentAmplitude > 0);
+    }
+
+    [Fact]
+    public void ProcessInPlace_AccumulatesAcrossCalls()
+    {
+        var tracker = new AmplitudeTracker(windowMs: 20);
+        int sampleRate = TestConstants.SampleRate48000;
+        int windowSamples = (int)(sampleRate * 20.0 / 1000.0);
+
+        var halfWindow = new float[windowSamples / 2];
+        Array.Fill(halfWindow, 0.5f);
+
+        tracker.ProcessInPlace(halfWindow, 0, sampleRate);
+        Assert.Equal(0.0, tracker.CurrentAmplitude);
+
+        double nextTimeMs = (windowSamples / 2) * 1000.0 / sampleRate;
+        tracker.ProcessInPlace(halfWindow, nextTimeMs, sampleRate);
+
+        Assert.InRange(tracker.CurrentAmplitude, 0.49, 0.51);
+    }
+
+    [Fact]
     public void Reset_ClearsState()
     {
         var tracker = new AmplitudeTracker(windowMs: 10);
@@ -279,6 +309,38 @@ public class AmplitudeTrackerTests
         Assert.Equal(2, result.Length);
         Assert.Equal(1.0f, result[0], 6);
         Assert.Equal(-1.0f, result[1], 6);
+    }
+
+    [Fact]
+    public void DownmixToMono_SpanOverload_MonoCopiesToOutput()
+    {
+        var mono = new float[] { 0.1f, -0.2f, 0.3f };
+        var output = new float[mono.Length];
+
+        AmplitudeTracker.DownmixToMono(mono, 1, output);
+
+        Assert.Equal(mono, output);
+    }
+
+    [Fact]
+    public void DownmixToMono_SpanOverload_StereoAveragesChannels()
+    {
+        var stereo = new float[] { 1.0f, 0.0f, 0.0f, 1.0f };
+        var output = new float[2];
+
+        AmplitudeTracker.DownmixToMono(stereo, 2, output);
+
+        Assert.Equal(0.5f, output[0]);
+        Assert.Equal(0.5f, output[1]);
+    }
+
+    [Fact]
+    public void DownmixToMono_SpanOverload_ThrowsWhenOutputTooSmall()
+    {
+        var stereo = new float[] { 1.0f, 0.0f, 0.0f, 1.0f };
+        var output = new float[1];
+
+        Assert.Throws<ArgumentException>(() => AmplitudeTracker.DownmixToMono(stereo, 2, output));
     }
 
     // ─── ByteBufferToMono ─────────────────────────────────────
