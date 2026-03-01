@@ -90,8 +90,24 @@ internal sealed class OnsetDetector
     /// <returns>Detected beat events for this chunk.</returns>
     public IReadOnlyList<BeatEvent> Process(ReadOnlySpan<float> monoSamples, double startTimeMs, int sampleRate)
     {
+        var results = new List<BeatEvent>();
+        Process(monoSamples, startTimeMs, sampleRate, results);
+        return results;
+    }
+
+    /// <summary>
+    /// Process a chunk of mono samples and append detected beat onsets to a caller-provided list.
+    /// Call repeatedly with sequential chunks; state is accumulated across calls.
+    /// </summary>
+    /// <param name="monoSamples">Mono float32 PCM samples.</param>
+    /// <param name="startTimeMs">Media timestamp of the first sample in this chunk.</param>
+    /// <param name="sampleRate">Sample rate in Hz.</param>
+    /// <param name="output">Destination list that receives detected beat events.</param>
+    public void Process(ReadOnlySpan<float> monoSamples, double startTimeMs, int sampleRate, List<BeatEvent> output)
+    {
         if (sampleRate <= 0)
             throw new ArgumentException("sampleRate must be positive.", nameof(sampleRate));
+        ArgumentNullException.ThrowIfNull(output);
 
         if (!_baseTimeSet)
         {
@@ -100,7 +116,6 @@ internal sealed class OnsetDetector
             _baseTimeSet = true;
         }
 
-        var results = new List<BeatEvent>();
         int inputOffset = 0;
 
         while (inputOffset < monoSamples.Length)
@@ -115,7 +130,7 @@ internal sealed class OnsetDetector
             // Process all available complete frames.
             while (_accumCount >= _fftSize)
             {
-                ProcessFrame(_accumBuffer.AsSpan(0, _fftSize), sampleRate, results);
+                ProcessFrame(_accumBuffer.AsSpan(0, _fftSize), sampleRate, output);
                 _samplePosition += _hopSize;
 
                 // Shift buffer by hopSize.
@@ -125,8 +140,6 @@ internal sealed class OnsetDetector
                 _accumCount = remaining;
             }
         }
-
-        return results;
     }
 
     /// <summary>Update sensitivity at runtime.</summary>

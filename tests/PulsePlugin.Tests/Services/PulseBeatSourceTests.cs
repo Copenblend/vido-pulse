@@ -92,6 +92,17 @@ public class PulseBeatSourceTests
     }
 
     [Fact]
+    public void RenderBeat_RepeatedGlowFrames_DoNotThrow()
+    {
+        using var surface = SKSurface.Create(new SKImageInfo(300, 300));
+
+        for (int i = 0; i < 500; i++)
+        {
+            _source.RenderBeat(surface.Canvas, 150, 150, 60, 1.0f);
+        }
+    }
+
+    [Fact]
     public void RenderBeat_NullCanvas_DoesNotThrow()
     {
         _source.RenderBeat(null!, 100, 100, 40, 0);
@@ -190,6 +201,15 @@ public class PulseBeatSourceTests
                     hasColor = true;
 
         Assert.True(hasColor, "RenderIndicator should produce visible hollow heart pixels");
+    }
+
+    [Fact]
+    public void RenderIndicator_AfterBeatProgress_UsesAnimationPathWithoutThrowing()
+    {
+        using var surface = SKSurface.Create(new SKImageInfo(200, 200));
+
+        _source.RenderBeat(surface.Canvas, 100, 100, 40, 0.85f);
+        _source.RenderIndicator(surface.Canvas, 100, 100, 40);
     }
 
     [Fact]

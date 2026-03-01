@@ -135,6 +135,7 @@ internal sealed class FfmpegAudioDecoder : IAudioDecoder
             var sampleBuffer = new float[ChunkSamples];
             int bufferOffset = 0;
             int totalSamplesEmitted = 0;
+            byte[]? conversionBuffer = null;
 
             while (ffmpeg.av_read_frame(fmtCtx, packet) >= 0)
             {
@@ -161,9 +162,12 @@ internal sealed class FfmpegAudioDecoder : IAudioDecoder
                         continue;
                     }
 
-                    var tempBuf = new byte[outSamples * TargetChannels * sizeof(float)];
+                    int requiredSize = outSamples * TargetChannels * sizeof(float);
+                    if (conversionBuffer == null || conversionBuffer.Length < requiredSize)
+                        conversionBuffer = new byte[requiredSize];
+
                     int converted;
-                    fixed (byte* pOut = tempBuf)
+                    fixed (byte* pOut = conversionBuffer)
                     {
                         var outPtr = pOut;
                         converted = ffmpeg.swr_convert(
@@ -176,7 +180,7 @@ internal sealed class FfmpegAudioDecoder : IAudioDecoder
                     if (converted <= 0) continue;
 
                     // Copy converted float samples into accumulator
-                    var floatSpan = MemoryMarshal.Cast<byte, float>(tempBuf.AsSpan(0, converted * TargetChannels * sizeof(float)));
+                    var floatSpan = MemoryMarshal.Cast<byte, float>(conversionBuffer.AsSpan(0, converted * TargetChannels * sizeof(float)));
                     int srcOffset = 0;
 
                     while (srcOffset < floatSpan.Length)

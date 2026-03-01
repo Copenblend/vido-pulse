@@ -411,6 +411,25 @@ public class BpmEstimatorTests
             $"After reset, expected ~90 BPM, got {estimate.Bpm:F1}");
     }
 
+    [Fact]
+    public void Reset_CanBeCalledRepeatedly_AndEstimatorRemainsStable()
+    {
+        var estimator = new BpmEstimator();
+
+        for (int cycle = 0; cycle < 3; cycle++)
+        {
+            estimator.Reset();
+
+            double intervalMs = 60000.0 / 120;
+            for (int i = 0; i < 12; i++)
+                estimator.AddBeat(new BeatEvent { TimestampMs = i * intervalMs, Strength = 1.0 });
+
+            var estimate = estimator.CurrentEstimate;
+            Assert.True(estimate.Bpm > 110 && estimate.Bpm < 130,
+                $"Cycle {cycle}: expected ~120 BPM, got {estimate.Bpm:F1}");
+        }
+    }
+
     // ──────────────────────────────────────────────
     //  Edge cases
     // ──────────────────────────────────────────────

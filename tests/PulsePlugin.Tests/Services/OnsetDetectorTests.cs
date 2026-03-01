@@ -298,6 +298,33 @@ public class OnsetDetectorTests
             $"Single-shot: {beatsSingle.Count}, Chunked: {beatsChunked.Count} — should be within 2");
     }
 
+    [Fact]
+    public void Process_WithOutputListOverload_AppendsDetectedBeats()
+    {
+        var detector = new OnsetDetector(fftSize: 1024, hopSize: 256, sensitivity: 1.5);
+        var click = SyntheticAudioGenerator.ClickTrack(120, 2500, DefaultSampleRate);
+        var output = new List<global::PulsePlugin.Models.BeatEvent>();
+
+        detector.Process(click, 0, DefaultSampleRate, output);
+
+        Assert.True(output.Count > 0, "Expected output overload to append detected beats");
+    }
+
+    [Fact]
+    public void Process_WithOutputListOverload_AccumulatesWhenListNotCleared()
+    {
+        var detector = new OnsetDetector(fftSize: 1024, hopSize: 256, sensitivity: 1.5);
+        var click = SyntheticAudioGenerator.ClickTrack(120, 1200, DefaultSampleRate);
+        var output = new List<global::PulsePlugin.Models.BeatEvent>();
+
+        detector.Process(click, 0, DefaultSampleRate, output);
+        int afterFirst = output.Count;
+        detector.Process(click, 1200, DefaultSampleRate, output);
+
+        Assert.True(afterFirst > 0);
+        Assert.True(output.Count >= afterFirst, "Output list should retain prior entries unless caller clears it");
+    }
+
     // ──────────────────────────────────────────────
     //  Sensitivity
     // ──────────────────────────────────────────────
