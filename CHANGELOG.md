@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2026-02-26
 
+### Maintenance / Validation
+
+- Included in vido-series cross-repo ticket validation runs (vido-113 through vido-118).
+- Adopted strict completion gate expectation: zero build warnings and zero test warnings when repository is part of ticket validation scope.
+
 ### Added
 
 - Project scaffold with `IVidoPlugin` entry point
