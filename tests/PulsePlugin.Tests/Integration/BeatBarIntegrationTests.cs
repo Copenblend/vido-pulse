@@ -67,15 +67,18 @@ public class BeatBarIntegrationTests : IDisposable
 
     private void OnBeatSourceRegistration(ExternalBeatSourceRegistration reg)
     {
+        if (reg.Source is not { } source)
+            return;
+
         if (reg.IsRegistering)
         {
             // De-duplicate (same pattern as BeatBarViewModel).
-            _registeredBeatSources.RemoveAll(s => s.Id == reg.Source.Id);
-            _registeredBeatSources.Add(reg.Source);
+            _registeredBeatSources.RemoveAll(s => s.Id == source.Id);
+            _registeredBeatSources.Add(source);
         }
         else
         {
-            _registeredBeatSources.RemoveAll(s => s.Id == reg.Source.Id);
+            _registeredBeatSources.RemoveAll(s => s.Id == source.Id);
         }
     }
 
@@ -86,8 +89,8 @@ public class BeatBarIntegrationTests : IDisposable
 
     private void OnExternalAxisPositions(ExternalAxisPositionsEvent evt)
     {
-        foreach (var kvp in evt.Positions)
-            _externalPositions[kvp.Key] = kvp.Value;
+        foreach (var position in evt.Positions.Span)
+            _externalPositions[position.AxisId] = position.Position;
     }
 
     private void OnExternalBeatEvent(ExternalBeatEvent evt)
@@ -249,8 +252,10 @@ public class BeatBarIntegrationTests : IDisposable
         var posEvents = _eventBus.GetPublished<ExternalAxisPositionsEvent>();
         foreach (var evt in posEvents)
         {
-            Assert.True(evt.Positions.ContainsKey("L0"));
-            Assert.InRange(evt.Positions["L0"], 5.0, 95.0);
+            var positions = evt.Positions.ToArray();
+            Assert.Contains(positions, p => p.AxisId == "L0");
+            var l0 = positions.First(p => p.AxisId == "L0").Position;
+            Assert.InRange(l0, 5.0, 95.0);
         }
     }
 
@@ -316,7 +321,7 @@ public class BeatBarIntegrationTests : IDisposable
 
         foreach (var evt in _beatEvents)
         {
-            foreach (double beatTimeMs in evt.BeatTimesMs)
+            foreach (double beatTimeMs in evt.BeatTimesMs.ToArray())
             {
                 Assert.True(beatTimeMs >= positionMs,
                     $"Beat {beatTimeMs}ms should be at or after cursor at {positionMs}ms");
@@ -342,7 +347,7 @@ public class BeatBarIntegrationTests : IDisposable
         if (_beatEvents.Count > 0)
         {
             // Any events should have empty beat lists
-            Assert.All(_beatEvents, evt => Assert.Empty(evt.BeatTimesMs));
+            Assert.All(_beatEvents, evt => Assert.Equal(0, evt.BeatTimesMs.Length));
         }
     }
 

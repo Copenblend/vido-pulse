@@ -54,11 +54,11 @@ public class BackwardCompatibilityTests : IDisposable
     {
         var evt = new ExternalBeatEvent
         {
-            BeatTimesMs = new List<double> { 100, 200, 300 },
+            BeatTimesMs = new double[] { 100, 200, 300 },
             SourceId = "com.example.some-other-plugin"
         };
 
-        Assert.Equal(3, evt.BeatTimesMs.Count);
+        Assert.Equal(3, evt.BeatTimesMs.Length);
         Assert.Equal("com.example.some-other-plugin", evt.SourceId);
     }
 
@@ -77,16 +77,16 @@ public class BackwardCompatibilityTests : IDisposable
     {
         var evt = new ExternalAxisPositionsEvent
         {
-            Positions = new Dictionary<string, double>
+            Positions = new[]
             {
-                ["L0"] = 50.0,
-                ["R0"] = 25.0,
-                ["V0"] = 75.0
-            }
+                new AxisPosition { AxisId = "L0", Position = 50.0 },
+                new AxisPosition { AxisId = "R0", Position = 25.0 },
+                new AxisPosition { AxisId = "V0", Position = 75.0 }
+            }.AsMemory()
         };
 
-        Assert.Equal(3, evt.Positions.Count);
-        Assert.Equal(50.0, evt.Positions["L0"]);
+        Assert.Equal(3, evt.Positions.Length);
+        Assert.Equal(50.0, evt.Positions.Span[0].Position);
     }
 
     [Fact]
