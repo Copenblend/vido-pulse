@@ -139,7 +139,8 @@ public class PulseEngineTests : IDisposable
         var reg = _eventBus.GetPublished<ExternalBeatSourceRegistration>();
         Assert.Single(reg);
         Assert.True(reg[0].IsRegistering);
-        Assert.Equal("com.vido.pulse", reg[0].Source.Id);
+        Assert.NotNull(reg[0].Source);
+        Assert.Equal("com.vido.pulse", reg[0].Source!.Id);
     }
 
     [Fact]
@@ -406,9 +407,10 @@ public class PulseEngineTests : IDisposable
 
         var posEvents = _eventBus.GetPublished<ExternalAxisPositionsEvent>();
         Assert.NotEmpty(posEvents);
-        Assert.True(posEvents[0].Positions.ContainsKey("L0"));
+        var positions = posEvents[0].Positions.ToArray();
+        Assert.Contains(positions, p => p.AxisId == "L0");
 
-        double l0 = posEvents[0].Positions["L0"];
+        double l0 = positions.First(p => p.AxisId == "L0").Position;
         Assert.True(l0 >= 5.0 && l0 <= 95.0, $"L0 position {l0} out of range");
     }
 
@@ -438,7 +440,7 @@ public class PulseEngineTests : IDisposable
         if (beatEvents.Count > 0)
         {
             Assert.Equal("com.vido.pulse", beatEvents[0].SourceId);
-            Assert.NotEmpty(beatEvents[0].BeatTimesMs);
+            Assert.True(beatEvents[0].BeatTimesMs.Length > 0);
         }
     }
 
@@ -665,7 +667,7 @@ public class PulseEngineTests : IDisposable
 
         if (baselineBeats.Count > 0 && filteredBeats.Count > 0)
         {
-            Assert.True(filteredBeats[0].BeatTimesMs.Count <= baselineBeats[0].BeatTimesMs.Count,
+            Assert.True(filteredBeats[0].BeatTimesMs.Length <= baselineBeats[0].BeatTimesMs.Length,
                 "Divisor 2 should produce fewer or equal beats in lookahead window");
         }
     }
@@ -692,8 +694,8 @@ public class PulseEngineTests : IDisposable
         // Both should produce valid L0 positions
         Assert.NotEmpty(pos1);
         Assert.NotEmpty(pos4);
-        Assert.True(pos1[0].Positions.ContainsKey("L0"));
-        Assert.True(pos4[0].Positions.ContainsKey("L0"));
+        Assert.Contains(pos1[0].Positions.Span.ToArray(), p => p.AxisId == "L0");
+        Assert.Contains(pos4[0].Positions.Span.ToArray(), p => p.AxisId == "L0");
     }
 }
 
@@ -716,7 +718,7 @@ internal class TestEventBus : IEventBus
         get { lock (_lock) return _published.ToList(); }
     }
 
-    public IDisposable Subscribe<TEvent>(Action<TEvent> handler) where TEvent : class
+    public IDisposable Subscribe<TEvent>(Action<TEvent> handler)
     {
         var type = typeof(TEvent);
         lock (_lock)
@@ -736,7 +738,7 @@ internal class TestEventBus : IEventBus
         });
     }
 
-    public void Publish<TEvent>(TEvent eventData) where TEvent : class
+    public void Publish<TEvent>(TEvent eventData)
     {
         List<Delegate> snapshot;
         lock (_lock)
@@ -752,7 +754,7 @@ internal class TestEventBus : IEventBus
     }
 
     /// <summary>Get all published events of a specific type.</summary>
-    public IReadOnlyList<T> GetPublished<T>() where T : class
+    public IReadOnlyList<T> GetPublished<T>()
     {
         lock (_lock) return _published.OfType<T>().ToList();
     }
@@ -764,7 +766,7 @@ internal class TestEventBus : IEventBus
     }
 
     /// <summary>Check whether any handler is registered for the given event type.</summary>
-    public bool HasSubscription<TEvent>() where TEvent : class
+    public bool HasSubscription<TEvent>()
     {
         lock (_lock)
             return _handlers.TryGetValue(typeof(TEvent), out var list) && list.Count > 0;

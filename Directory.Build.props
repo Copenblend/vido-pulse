@@ -4,7 +4,7 @@
   </PropertyGroup>
   <PropertyGroup>
     <VidoCoreVersion>0.12.0</VidoCoreVersion>
-    <VidoHapticsVersion>1.0.0</VidoHapticsVersion>
+    <VidoHapticsVersion>2.0.0</VidoHapticsVersion>
     <FFmpegAutoGenVersion>8.0.0</FFmpegAutoGenVersion>
     <SkiaSharpVersion>2.*</SkiaSharpVersion>
     <SkiaSharpViewsWpfVersion>2.*</SkiaSharpViewsWpfVersion>

@@ -44,6 +44,8 @@ internal sealed class PulseEngine : IDisposable
     private int _lastPublishedBeatIndex = -1;
     private bool _isPlaying;
     private bool _disposed;
+    private readonly AxisPosition[] _axisPositionBuffer = new AxisPosition[1];
+    private double[] _beatBuffer = new double[32];
 
     // ── Public state ──
 
@@ -260,9 +262,10 @@ internal sealed class PulseEngine : IDisposable
         // Map to L0 axis position using effective (divisor-filtered) beats.
         double l0 = _tCodeMapper.MapToPosition(effectiveMap, positionMs, amplitude);
 
+        _axisPositionBuffer[0] = new AxisPosition { AxisId = "L0", Position = l0 };
         _eventBus.Publish(new ExternalAxisPositionsEvent
         {
-            Positions = new Dictionary<string, double> { ["L0"] = l0 }
+            Positions = _axisPositionBuffer.AsMemory(0, 1)
         });
 
         // Publish beats in the BeatBar lookahead window (divisor-filtered).
@@ -504,7 +507,7 @@ internal sealed class PulseEngine : IDisposable
         if (beatMap.Beats.Count == 0) return;
 
         double endMs = positionMs + BeatLookaheadMs;
-        var beatsInWindow = new List<double>();
+        int beatsInWindowCount = 0;
 
         // Find first beat at or after current position via scan from last known index.
         int startIdx = Math.Max(0, _lastPublishedBeatIndex);
@@ -513,18 +516,25 @@ internal sealed class PulseEngine : IDisposable
             double t = beatMap.Beats[i].TimestampMs;
             if (t > endMs) break;
             if (t >= positionMs)
-                beatsInWindow.Add(t);
+            {
+                if (beatsInWindowCount >= _beatBuffer.Length)
+                {
+                    Array.Resize(ref _beatBuffer, _beatBuffer.Length * 2);
+                }
+
+                _beatBuffer[beatsInWindowCount++] = t;
+            }
         }
 
         // Track the last beat we've passed for seek detection.
         int currentBeatIdx = PulseTCodeMapper.FindCurrentBeatIndex(beatMap.Beats, positionMs);
         _lastPublishedBeatIndex = currentBeatIdx;
 
-        if (beatsInWindow.Count > 0)
+        if (beatsInWindowCount > 0)
         {
             _eventBus.Publish(new ExternalBeatEvent
             {
-                BeatTimesMs = beatsInWindow,
+                BeatTimesMs = _beatBuffer.AsMemory(0, beatsInWindowCount),
                 SourceId = _beatSource.Id
             });
         }
