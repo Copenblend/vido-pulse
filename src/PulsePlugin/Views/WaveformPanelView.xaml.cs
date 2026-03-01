@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Windows;
 using System.Windows.Controls;
 using PulsePlugin.ViewModels;
@@ -8,6 +9,7 @@ using SkiaSharp.Views.WPF;
 
 namespace PulsePlugin.Views;
 
+[ExcludeFromCodeCoverage]
 /// <summary>
 /// Code-behind for the Pulse Waveform bottom panel.
 /// Renders full-track waveform, beat tick markers, BPM readout,
@@ -104,6 +106,7 @@ public partial class WaveformPanelView : UserControl
     private bool _waveformPathCacheValid;
     private bool _isDisposed;
 
+    /// <summary>Initializes a new instance of the waveform panel view.</summary>
     public WaveformPanelView()
     {
         InitializeComponent();

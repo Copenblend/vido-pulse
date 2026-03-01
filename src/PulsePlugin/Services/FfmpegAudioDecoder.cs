@@ -1,9 +1,11 @@
 using System.Runtime.CompilerServices;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using FFmpeg.AutoGen.Abstractions;
 
 namespace PulsePlugin.Services;
 
+[ExcludeFromCodeCoverage]
 /// <summary>
 /// Decodes audio from a media file using FFmpeg.AutoGen (in-process C API bindings).
 /// The host application initialises <c>DynamicallyLoadedBindings</c> at startup,

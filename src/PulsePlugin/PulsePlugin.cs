@@ -21,7 +21,11 @@ public class PulsePlugin : IVidoPlugin
     private UIElement? _beatRateControl;
     private IDisposable? _suppressSubscription;
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Activates the Pulse plugin by building the service graph, registering UI contributions,
+    /// restoring persisted settings, and wiring host/video events.
+    /// </summary>
+    /// <param name="context">Plugin host context used for registration, events, settings, and logging.</param>
     public void Activate(IPluginContext context)
     {
         _context = context;
@@ -110,7 +114,10 @@ public class PulsePlugin : IVidoPlugin
         context.Logger.Info("Pulse plugin activated", "Pulse");
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Deactivates the plugin by unhooking host events, disposing managed resources,
+    /// and clearing retained references.
+    /// </summary>
     public void Deactivate()
     {
         if (_context != null)

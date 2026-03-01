@@ -23,8 +23,11 @@ internal sealed class PulseSidebarViewModel : INotifyPropertyChanged, IDisposabl
     private int _selectedBeatRateIndex;
     private bool _disposed;
 
+    /// <summary>Raised when a property value changes.</summary>
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>Initializes a new instance of the sidebar view model.</summary>
+    /// <param name="engine">Pulse engine that provides state, progress, and BPM updates.</param>
     public PulseSidebarViewModel(PulseEngine engine)
     {
         ArgumentNullException.ThrowIfNull(engine);
@@ -230,6 +233,7 @@ internal sealed class PulseSidebarViewModel : INotifyPropertyChanged, IDisposabl
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
+    /// <summary>Disposes the view model and unsubscribes from engine events.</summary>
     public void Dispose()
     {
         if (_disposed) return;

@@ -1,4 +1,6 @@
 using Moq;
+using System.Runtime.ExceptionServices;
+using System.Windows;
 using Vido.Core.Events;
 using Vido.Core.Logging;
 using Vido.Core.Playback;
@@ -122,5 +124,69 @@ public class PulsePluginTests
         capturedHandler!(new SuppressFunscriptEvent { SuppressFunscripts = false });
 
         context.Verify(c => c.RequestShowBottomPanel("pulse-waveform"), Times.Never);
+    }
+
+    [Fact]
+    public void Activate_RegistersSidebarBottomControlbarAndStatusBar()
+    {
+        var context = CreateMockContext();
+        var plugin = new PulsePlugin();
+
+        plugin.Activate(context.Object);
+
+        context.Verify(c => c.RegisterSidebarPanel("pulse-sidebar", It.IsAny<Func<object>>()), Times.Once);
+        context.Verify(c => c.RegisterBottomPanel("pulse-waveform", It.IsAny<Func<object>>()), Times.Once);
+        context.Verify(c => c.RegisterControlBarItem("pulse-beat-rate", It.IsAny<Func<object>>(), It.IsAny<Func<object>?>()), Times.Once);
+        context.Verify(c => c.RegisterStatusBarItem("pulse-status", It.IsAny<Func<object>>()), Times.Once);
+    }
+
+    [Fact]
+    public void Activate_RestoresSavedSettingsAndPersistsUpdates()
+    {
+        var context = CreateMockContext();
+        var settings = Mock.Get(context.Object.Settings);
+        settings.Setup(s => s.Get("usePulse", false)).Returns(true);
+        settings.Setup(s => s.Get("beatRateIndex", 0)).Returns(3);
+
+        Func<object>? controlFactory = null;
+        context.Setup(c => c.RegisterControlBarItem("pulse-beat-rate", It.IsAny<Func<object>>(), It.IsAny<Func<object>?>()))
+            .Callback<string, Func<object>, Func<object>?>((_, factory, _) => controlFactory = factory);
+
+        var plugin = new PulsePlugin();
+        plugin.Activate(context.Object);
+
+        Assert.NotNull(controlFactory);
+
+        RunOnSta(() =>
+        {
+            var control = controlFactory!();
+            Assert.NotNull(control);
+        });
+
+        settings.Verify(s => s.Set("usePulse", true), Times.AtLeastOnce);
+        settings.Verify(s => s.Set("beatRateIndex", 3), Times.AtLeastOnce);
+    }
+
+    private static void RunOnSta(Action action)
+    {
+        Exception? exception = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                exception = ex;
+            }
+        });
+
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        if (exception != null)
+            ExceptionDispatchInfo.Capture(exception).Throw();
     }
 }

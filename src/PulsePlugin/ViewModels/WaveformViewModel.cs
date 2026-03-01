@@ -22,6 +22,7 @@ internal sealed class WaveformViewModel : INotifyPropertyChanged, IDisposable
     private bool _isActive;
     private bool _disposed;
 
+    /// <summary>Raised when a property value changes.</summary>
     public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>Raised when the view should repaint the SkiaSharp canvas.</summary>
@@ -33,6 +34,8 @@ internal sealed class WaveformViewModel : INotifyPropertyChanged, IDisposable
     /// <summary>Display labels for the window duration dropdown.</summary>
     public static readonly string[] WindowDurationLabels = ["10s", "30s", "60s", "2m", "5m"];
 
+    /// <summary>Initializes a new instance of the waveform view model.</summary>
+    /// <param name="engine">Pulse engine used as the data source for waveform and timing updates.</param>
     public WaveformViewModel(PulseEngine engine)
     {
         ArgumentNullException.ThrowIfNull(engine);
@@ -209,6 +212,7 @@ internal sealed class WaveformViewModel : INotifyPropertyChanged, IDisposable
 
     // ── IDisposable ──
 
+    /// <summary>Disposes the view model and unsubscribes from engine events.</summary>
     public void Dispose()
     {
         if (_disposed) return;
