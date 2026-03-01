@@ -43,6 +43,12 @@ internal sealed class BpmEstimator
     private double _phaseOffsetMs;
     private double _lastBeatTimestampMs = double.NegativeInfinity;
 
+    /// <summary>
+    /// Initializes a new instance of the BPM estimator.
+    /// </summary>
+    /// <param name="minBpm">Lower BPM bound considered during estimation.</param>
+    /// <param name="maxBpm">Upper BPM bound considered during estimation.</param>
+    /// <exception cref="ArgumentException">Thrown when BPM bounds are invalid.</exception>
     public BpmEstimator(double minBpm = 50, double maxBpm = 180)
     {
         if (minBpm <= 0)

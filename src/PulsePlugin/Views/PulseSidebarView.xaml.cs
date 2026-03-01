@@ -7,6 +7,7 @@ namespace PulsePlugin.Views;
 /// </summary>
 public partial class PulseSidebarView : UserControl
 {
+    /// <summary>Initializes a new instance of the Pulse sidebar view.</summary>
     public PulseSidebarView()
     {
         InitializeComponent();

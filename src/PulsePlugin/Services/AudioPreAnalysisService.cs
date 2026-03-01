@@ -35,6 +35,12 @@ internal sealed class AudioPreAnalysisService : IDisposable
     /// <summary>Whether analysis is currently in progress.</summary>
     public bool IsAnalyzing => _analysisTask is { IsCompleted: false };
 
+    /// <summary>
+    /// Initializes a new instance of the audio pre-analysis service.
+    /// </summary>
+    /// <param name="decoder">Audio decoder used to stream PCM chunks for analysis.</param>
+    /// <param name="sensitivity">Onset detector sensitivity multiplier (must be positive).</param>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="sensitivity"/> is not positive.</exception>
     public AudioPreAnalysisService(IAudioDecoder decoder, double sensitivity = 1.5)
     {
         ArgumentNullException.ThrowIfNull(decoder);
@@ -80,6 +86,7 @@ internal sealed class AudioPreAnalysisService : IDisposable
         _onsetDetector.SetSensitivity(sensitivity);
     }
 
+    /// <summary>Disposes this service and cancels any in-progress analysis task.</summary>
     public void Dispose()
     {
         Cancel();

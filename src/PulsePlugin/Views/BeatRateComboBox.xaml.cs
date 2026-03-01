@@ -8,6 +8,7 @@ namespace PulsePlugin.Views;
 /// </summary>
 public partial class BeatRateComboBox : UserControl
 {
+    /// <summary>Initializes a new instance of the beat-rate selector control.</summary>
     public BeatRateComboBox()
     {
         InitializeComponent();
