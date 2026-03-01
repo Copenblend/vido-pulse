@@ -53,6 +53,36 @@ public class PulseTCodeMapperTests
         Assert.Equal(50.0, pos);
     }
 
+    [Fact]
+    public void MapToPosition_WithOutBeatIndex_BeforeFirstBeat_ReturnsNeg1()
+    {
+        var map = MakeBeatMap(120, 10);
+
+        _ = _mapper.MapToPosition(map, -100, 0.5, out int beatIndex);
+
+        Assert.Equal(-1, beatIndex);
+    }
+
+    [Fact]
+    public void MapToPosition_WithOutBeatIndex_OnBeat_ReturnsMatchingIndex()
+    {
+        var map = MakeBeatMap(120, 10);
+
+        _ = _mapper.MapToPosition(map, 1000, 0.5, out int beatIndex);
+
+        Assert.Equal(2, beatIndex);
+    }
+
+    [Fact]
+    public void MapToPosition_WithOutBeatIndex_AfterLastBeat_ReturnsLastIndex()
+    {
+        var map = MakeBeatMap(120, 5);
+
+        _ = _mapper.MapToPosition(map, 10_000, 0.5, out int beatIndex);
+
+        Assert.Equal(4, beatIndex);
+    }
+
     // ──────────────────────────────────────────────
     //  Before first beat
     // ──────────────────────────────────────────────

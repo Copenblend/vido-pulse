@@ -48,7 +48,21 @@ internal sealed class PulseTCodeMapper
     /// <returns>L0 axis position (0–100).</returns>
     public double MapToPosition(BeatMap? beatMap, double currentTimeMs, double currentAmplitude)
     {
-        double rawPosition = ComputeRawPosition(beatMap, currentTimeMs, currentAmplitude);
+        return MapToPosition(beatMap, currentTimeMs, currentAmplitude, out _);
+    }
+
+    /// <summary>
+    /// Given the current playback position, pre-analyzed BeatMap, and live amplitude,
+    /// return the desired L0 axis position on a 0–100 scale and output the current beat index.
+    /// </summary>
+    /// <param name="beatMap">Pre-analyzed beat map. Null or empty beats returns rest position.</param>
+    /// <param name="currentTimeMs">Current playback position in milliseconds.</param>
+    /// <param name="currentAmplitude">Live RMS amplitude (0.0–1.0) from LiveAmplitudeService.</param>
+    /// <param name="beatIndex">Index of most recent beat at or before <paramref name="currentTimeMs"/>, or -1.</param>
+    /// <returns>L0 axis position (0–100).</returns>
+    public double MapToPosition(BeatMap? beatMap, double currentTimeMs, double currentAmplitude, out int beatIndex)
+    {
+        double rawPosition = ComputeRawPosition(beatMap, currentTimeMs, currentAmplitude, out beatIndex);
 
         // Apply exponential smoothing to prevent jerky jumps when the beat
         // divisor changes (the beat grid shifts and the raw target can jump
@@ -77,16 +91,19 @@ internal sealed class PulseTCodeMapper
     /// <summary>
     /// Computes the raw (unsmoothed) L0 position from the beat map and amplitude.
     /// </summary>
-    private double ComputeRawPosition(BeatMap? beatMap, double currentTimeMs, double currentAmplitude)
+    private double ComputeRawPosition(BeatMap? beatMap, double currentTimeMs, double currentAmplitude, out int beatIndex)
     {
         if (beatMap is null || beatMap.Beats.Count == 0)
+        {
+            beatIndex = -1;
             return RestPosition;
+        }
 
         // Clamp amplitude.
         double amplitude = Math.Clamp(currentAmplitude, 0.0, 1.0);
 
         // Find the surrounding beats.
-        int beatIndex = FindCurrentBeatIndex(beatMap.Beats, currentTimeMs);
+        beatIndex = FindCurrentBeatIndex(beatMap.Beats, currentTimeMs);
 
         if (beatIndex < 0)
         {
