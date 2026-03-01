@@ -237,4 +237,37 @@ public class LiveAmplitudeServiceTests
 
         Assert.True(svc.CurrentAmplitude > 0);
     }
+
+    [Fact]
+    public void SubmitSamples_LargeBuffer_ResizesMonoBufferAndProcesses()
+    {
+        var svc = new LiveAmplitudeService();
+        svc.Start();
+
+        var mono = SyntheticAudioGenerator.SineWave(220, 1500, TestConstants.SampleRate48000, 0.7f);
+        var stereo = SyntheticAudioGenerator.MonoToStereo(mono);
+        var bytes = SyntheticAudioGenerator.ToByteBuffer(stereo);
+
+        svc.SubmitSamples(bytes, mono.Length, TestConstants.SampleRate48000, TestConstants.Stereo);
+        svc.ProcessAvailable(0);
+
+        Assert.True(svc.CurrentAmplitude > 0);
+    }
+
+    [Fact]
+    public void SubmitSamples_InvalidMetadata_DoesNotThrowAndDoesNotUpdateAmplitude()
+    {
+        var svc = new LiveAmplitudeService();
+        svc.Start();
+
+        var mono = SyntheticAudioGenerator.SineWave(440, 100, TestConstants.SampleRate44100, 0.8f);
+        var bytes = SyntheticAudioGenerator.ToByteBuffer(mono);
+
+        svc.SubmitSamples(bytes, mono.Length, 0, TestConstants.Mono);
+        svc.SubmitSamples(bytes, mono.Length, TestConstants.SampleRate44100, 0);
+        svc.SubmitSamples(bytes, 0, TestConstants.SampleRate44100, TestConstants.Mono);
+        svc.ProcessAvailable(0);
+
+        Assert.Equal(0, svc.CurrentAmplitude);
+    }
 }
