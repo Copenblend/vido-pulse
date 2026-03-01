@@ -53,7 +53,7 @@
             <ContentControl x:Name="CanvasHost" />
 
             <TextBlock x:Name="EmptyStateText"
-                       Text="Enable Pulse to see the waveform"
+                       Text="Waiting for Pulse to Load Waveform"
                        Foreground="#CCCCCC"
                        Opacity="0.4"
                        FontSize="14"

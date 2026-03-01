@@ -33,6 +33,7 @@ internal sealed class BpmEstimator
 
     // Circular buffer of inter-beat intervals in ms.
     private readonly double[] _intervals;
+    private readonly double[] _bpmVotes;
     private int _intervalCount;
     private int _intervalWriteIndex;
 
@@ -54,6 +55,7 @@ internal sealed class BpmEstimator
 
         _beatTimestamps = new double[MaxIntervals + 1];
         _intervals = new double[MaxIntervals];
+        _bpmVotes = new double[NumCandidateBins];
     }
 
     /// <summary>Current BPM estimate.</summary>
@@ -159,6 +161,7 @@ internal sealed class BpmEstimator
         _lastBeatTimestampMs = double.NegativeInfinity;
         Array.Clear(_beatTimestamps);
         Array.Clear(_intervals);
+        Array.Clear(_bpmVotes);
     }
 
     /// <summary>
@@ -173,7 +176,7 @@ internal sealed class BpmEstimator
 
         // Build a weighted histogram of candidate BPMs.
         // Each stored interval votes for its corresponding BPM, weighted by recency.
-        var bpmVotes = new double[NumCandidateBins];
+        Array.Clear(_bpmVotes);
         double totalWeight = 0;
 
         for (int i = 0; i < _intervalCount; i++)
@@ -189,10 +192,10 @@ internal sealed class BpmEstimator
 
             // The interval itself, plus sub-harmonics (interval/2, interval/3) and
             // super-harmonics (interval*2) to handle double-time/half-time detection.
-            VoteForInterval(interval, recencyWeight, bpmVotes, minIntervalMs, maxIntervalMs);
-            VoteForInterval(interval * 2.0, recencyWeight * 0.5, bpmVotes, minIntervalMs, maxIntervalMs);
-            VoteForInterval(interval / 2.0, recencyWeight * 0.5, bpmVotes, minIntervalMs, maxIntervalMs);
-            VoteForInterval(interval / 3.0, recencyWeight * 0.2, bpmVotes, minIntervalMs, maxIntervalMs);
+            VoteForInterval(interval, recencyWeight, _bpmVotes, minIntervalMs, maxIntervalMs);
+            VoteForInterval(interval * 2.0, recencyWeight * 0.5, _bpmVotes, minIntervalMs, maxIntervalMs);
+            VoteForInterval(interval / 2.0, recencyWeight * 0.5, _bpmVotes, minIntervalMs, maxIntervalMs);
+            VoteForInterval(interval / 3.0, recencyWeight * 0.2, _bpmVotes, minIntervalMs, maxIntervalMs);
 
             totalWeight += recencyWeight;
         }
@@ -205,9 +208,9 @@ internal sealed class BpmEstimator
         double peakVote = 0;
         for (int i = 0; i < NumCandidateBins; i++)
         {
-            if (bpmVotes[i] > peakVote)
+            if (_bpmVotes[i] > peakVote)
             {
-                peakVote = bpmVotes[i];
+                peakVote = _bpmVotes[i];
                 peakBin = i;
             }
         }
@@ -216,9 +219,9 @@ internal sealed class BpmEstimator
         double refinedBpm = BinToBpm(peakBin);
         if (peakBin > 0 && peakBin < NumCandidateBins - 1)
         {
-            double left = bpmVotes[peakBin - 1];
-            double center = bpmVotes[peakBin];
-            double right = bpmVotes[peakBin + 1];
+            double left = _bpmVotes[peakBin - 1];
+            double center = _bpmVotes[peakBin];
+            double right = _bpmVotes[peakBin + 1];
             double denom = 2.0 * (2.0 * center - left - right);
             if (Math.Abs(denom) > 1e-10)
             {
@@ -231,7 +234,7 @@ internal sealed class BpmEstimator
         // Also factor in consistency — sum of votes in the ±2 bin neighborhood.
         double neighborhoodVote = 0;
         for (int i = Math.Max(0, peakBin - 2); i <= Math.Min(NumCandidateBins - 1, peakBin + 2); i++)
-            neighborhoodVote += bpmVotes[i];
+            neighborhoodVote += _bpmVotes[i];
 
         double confidence = Math.Min(1.0, neighborhoodVote / (totalWeight * 1.5));
 

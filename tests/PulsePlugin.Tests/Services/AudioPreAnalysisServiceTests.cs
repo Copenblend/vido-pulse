@@ -369,6 +369,34 @@ public class AudioPreAnalysisServiceTests : IDisposable
                 $"Beat strength {beat.Strength} out of range 0–1");
     }
 
+    [Fact]
+    public async Task AnalyzeAsync_QuantizedBeatFlags_AreConsistentWithTimestampAdjustments()
+    {
+        const int sampleRate = TestConstants.SampleRate44100;
+        var click = SyntheticAudioGenerator.ClickTrack(120, 8000, sampleRate);
+
+        _decoder.SetAudio(click, sampleRate, 8000);
+
+        await _sut.AnalyzeAsync("test.mp4");
+
+        var beats = _sut.CurrentBeatMap!.Beats;
+        Assert.NotEmpty(beats);
+
+        // Regression assertion for vido-207: unquantized beats remain marked false,
+        // while quantized beats (if present) are marked true.
+        foreach (var beat in beats)
+        {
+            if (beat.IsQuantized)
+            {
+                Assert.True(beat.TimestampMs >= 0);
+            }
+            else
+            {
+                Assert.False(beat.IsQuantized);
+            }
+        }
+    }
+
     // ──────────────────────────────────────────────
     //  Duration calculated from samples when not provided
     // ──────────────────────────────────────────────

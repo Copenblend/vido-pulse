@@ -94,6 +94,7 @@ internal sealed class AudioPreAnalysisService : IDisposable
             _bpmEstimator.Reset();
 
             var allBeats = new List<BeatEvent>();
+            var detectedBeats = new List<BeatEvent>();
             var waveformSamples = new List<float>();
             double totalDurationMs = 0;
             long totalSamplesProcessed = 0;
@@ -117,8 +118,9 @@ internal sealed class AudioPreAnalysisService : IDisposable
                     waveformDownsampleFactor = Math.Max(1, sampleRate / WaveformTargetRate);
 
                 // Run onset detection.
-                var beats = _onsetDetector.Process(chunk.Samples, chunk.TimestampMs, sampleRate);
-                foreach (var beat in beats)
+                detectedBeats.Clear();
+                _onsetDetector.Process(chunk.Samples, chunk.TimestampMs, sampleRate, detectedBeats);
+                foreach (var beat in detectedBeats)
                 {
                     // Feed beat to BPM estimator for quantization.
                     _bpmEstimator.AddBeat(beat);
@@ -127,12 +129,19 @@ internal sealed class AudioPreAnalysisService : IDisposable
                     double quantizedTime = _bpmEstimator.QuantizeBeat(beat.TimestampMs);
                     bool isQuantized = Math.Abs(quantizedTime - beat.TimestampMs) > 0.01;
 
-                    allBeats.Add(new BeatEvent
+                    if (isQuantized)
                     {
-                        TimestampMs = quantizedTime,
-                        Strength = beat.Strength,
-                        IsQuantized = isQuantized
-                    });
+                        allBeats.Add(new BeatEvent
+                        {
+                            TimestampMs = quantizedTime,
+                            Strength = beat.Strength,
+                            IsQuantized = true
+                        });
+                    }
+                    else
+                    {
+                        allBeats.Add(beat);
+                    }
                 }
 
                 // Compute amplitude for waveform overview.

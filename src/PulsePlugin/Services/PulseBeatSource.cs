@@ -58,6 +58,9 @@ internal sealed class PulseBeatSource : IExternalBeatSource
         Style = SKPaintStyle.Fill
     };
 
+    private readonly SKMaskFilter _glowBlurFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, GlowBlurSigma);
+    private readonly SKPath _heartPath = new();
+
     /// <inheritdoc />
     public string Id => "com.vido.pulse";
 
@@ -134,39 +137,37 @@ internal sealed class PulseBeatSource : IExternalBeatSource
         byte glowAlpha = (byte)(200 * intensity);
         _glowPaint.Color = GlowColor.WithAlpha(glowAlpha);
 
-        var filter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, GlowBlurSigma);
-        _glowPaint.MaskFilter = filter;
+        _glowPaint.MaskFilter = _glowBlurFilter;
 
         // Draw slightly oversized heart as glow
         DrawHeart(canvas, cx, cy, size * 1.25f, _glowPaint);
 
-        filter.Dispose();
         _glowPaint.MaskFilter = null;
     }
 
     /// <summary>Draw a heart shape centered at (cx, cy) with the given size (diameter).</summary>
-    private static void DrawHeart(SKCanvas canvas, float cx, float cy, float size, SKPaint paint)
+    private void DrawHeart(SKCanvas canvas, float cx, float cy, float size, SKPaint paint)
     {
         float r = size / 2f;
 
-        using var path = new SKPath();
+        _heartPath.Reset();
 
         // Bottom point of heart
-        path.MoveTo(cx, cy + r * 0.7f);
+        _heartPath.MoveTo(cx, cy + r * 0.7f);
 
         // Left curve: bottom → top-left → center-top
-        path.CubicTo(
+        _heartPath.CubicTo(
             cx - r * 1.0f, cy + r * 0.1f,
             cx - r * 0.8f, cy - r * 0.7f,
             cx, cy - r * 0.3f);
 
         // Right curve: center-top → top-right → bottom
-        path.CubicTo(
+        _heartPath.CubicTo(
             cx + r * 0.8f, cy - r * 0.7f,
             cx + r * 1.0f, cy + r * 0.1f,
             cx, cy + r * 0.7f);
 
-        path.Close();
-        canvas.DrawPath(path, paint);
+        _heartPath.Close();
+        canvas.DrawPath(_heartPath, paint);
     }
 }
