@@ -94,6 +94,14 @@ public partial class WaveformPanelView : UserControl
     private readonly SKPath _waveformLinePath = new();
     private readonly SKPath _waveformBottomPath = new();
     private readonly SKPath _cursorTrianglePath = new();
+    private IReadOnlyList<float>? _cachedWaveformSource;
+    private int _cachedWaveformSampleRate;
+    private int _cachedStartSample;
+    private int _cachedEndSample;
+    private int _cachedStep;
+    private int _cachedWidth;
+    private int _cachedHeight;
+    private bool _waveformPathCacheValid;
     private bool _isDisposed;
 
     public WaveformPanelView()
@@ -255,65 +263,92 @@ public partial class WaveformPanelView : UserControl
 
         if (startSample >= endSample) return;
 
-        _waveformFillPath.Reset();
-        _waveformLinePath.Reset();
-        _waveformBottomPath.Reset();
-
-        bool pathStarted = false;
-
         // Downsample to at most ~2 points per pixel for performance
         int samplesInRange = endSample - startSample + 1;
         int step = Math.Max(1, samplesInRange / ((int)width * 2));
 
-        for (int i = startSample; i <= endSample; i += step)
+        bool cacheKeyMatches = _waveformPathCacheValid
+            && ReferenceEquals(_cachedWaveformSource, waveform)
+            && _cachedWaveformSampleRate == sampleRate
+            && _cachedStartSample == startSample
+            && _cachedEndSample == endSample
+            && _cachedStep == step
+            && _cachedWidth == (int)width
+            && _cachedHeight == (int)height;
+
+        if (!cacheKeyMatches)
         {
-            double sampleTime = (double)i / sampleRate;
-            float x = (float)((sampleTime - windowStartTime) * pixelsPerSecond);
-            float amplitude = Math.Abs(waveform[i]);
-            float yOffset = amplitude * maxAmplitude;
+            _waveformFillPath.Reset();
+            _waveformLinePath.Reset();
+            _waveformBottomPath.Reset();
+
+            bool pathStarted = false;
+
+            for (int i = startSample; i <= endSample; i += step)
+            {
+                double sampleTime = (double)i / sampleRate;
+                float x = (float)((sampleTime - windowStartTime) * pixelsPerSecond);
+                float amplitude = Math.Abs(waveform[i]);
+                float yOffset = amplitude * maxAmplitude;
+
+                if (!pathStarted)
+                {
+                    _waveformLinePath.MoveTo(x, midY - yOffset);
+                    _waveformFillPath.MoveTo(x, midY - yOffset);
+                    pathStarted = true;
+                }
+                else
+                {
+                    _waveformLinePath.LineTo(x, midY - yOffset);
+                    _waveformFillPath.LineTo(x, midY - yOffset);
+                }
+            }
 
             if (!pathStarted)
             {
-                _waveformLinePath.MoveTo(x, midY - yOffset);
-                _waveformFillPath.MoveTo(x, midY - yOffset);
-                pathStarted = true;
+                _waveformPathCacheValid = false;
+                return;
             }
-            else
-            {
-                _waveformLinePath.LineTo(x, midY - yOffset);
-                _waveformFillPath.LineTo(x, midY - yOffset);
-            }
-        }
 
-        // Mirror the path back for the bottom half (for fill)
-        for (int i = endSample; i >= startSample; i -= step)
-        {
-            double sampleTime = (double)i / sampleRate;
-            float x = (float)((sampleTime - windowStartTime) * pixelsPerSecond);
-            float amplitude = Math.Abs(waveform[i]);
-            float yOffset = amplitude * maxAmplitude;
-            _waveformFillPath.LineTo(x, midY + yOffset);
-        }
-        _waveformFillPath.Close();
-
-        // Draw mirrored bottom outline
-        bool bottomStarted = false;
-        for (int i = startSample; i <= endSample; i += step)
-        {
-            double sampleTime = (double)i / sampleRate;
-            float x = (float)((sampleTime - windowStartTime) * pixelsPerSecond);
-            float amplitude = Math.Abs(waveform[i]);
-            float yOffset = amplitude * maxAmplitude;
-
-            if (!bottomStarted)
+            // Mirror the path back for the bottom half (for fill)
+            for (int i = endSample; i >= startSample; i -= step)
             {
-                _waveformBottomPath.MoveTo(x, midY + yOffset);
-                bottomStarted = true;
+                double sampleTime = (double)i / sampleRate;
+                float x = (float)((sampleTime - windowStartTime) * pixelsPerSecond);
+                float amplitude = Math.Abs(waveform[i]);
+                float yOffset = amplitude * maxAmplitude;
+                _waveformFillPath.LineTo(x, midY + yOffset);
             }
-            else
+            _waveformFillPath.Close();
+
+            // Draw mirrored bottom outline
+            bool bottomStarted = false;
+            for (int i = startSample; i <= endSample; i += step)
             {
-                _waveformBottomPath.LineTo(x, midY + yOffset);
+                double sampleTime = (double)i / sampleRate;
+                float x = (float)((sampleTime - windowStartTime) * pixelsPerSecond);
+                float amplitude = Math.Abs(waveform[i]);
+                float yOffset = amplitude * maxAmplitude;
+
+                if (!bottomStarted)
+                {
+                    _waveformBottomPath.MoveTo(x, midY + yOffset);
+                    bottomStarted = true;
+                }
+                else
+                {
+                    _waveformBottomPath.LineTo(x, midY + yOffset);
+                }
             }
+
+            _cachedWaveformSource = waveform;
+            _cachedWaveformSampleRate = sampleRate;
+            _cachedStartSample = startSample;
+            _cachedEndSample = endSample;
+            _cachedStep = step;
+            _cachedWidth = (int)width;
+            _cachedHeight = (int)height;
+            _waveformPathCacheValid = true;
         }
 
         canvas.DrawPath(_waveformFillPath, _waveformFillPaint);

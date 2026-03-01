@@ -241,18 +241,18 @@ internal sealed class PulseEngine : IDisposable
     public void OnPositionChanged(double positionMs)
     {
         BeatMap? beatMap;
+        BeatMap? effectiveMap;
 
         lock (_lock)
         {
             if (!_enabled || _state != PulseState.Active) return;
             beatMap = _currentBeatMap;
+            effectiveMap = _effectiveBeatMap;
         }
 
         if (beatMap == null) return;
 
         // Use the divisor-filtered beat map for both TCode and BeatBar.
-        BeatMap? effectiveMap;
-        lock (_lock) { effectiveMap = _effectiveBeatMap; }
         effectiveMap ??= beatMap;
 
         // Drain live audio and compute amplitude.
@@ -260,7 +260,7 @@ internal sealed class PulseEngine : IDisposable
         double amplitude = _liveAmplitudeService.CurrentAmplitude;
 
         // Map to L0 axis position using effective (divisor-filtered) beats.
-        double l0 = _tCodeMapper.MapToPosition(effectiveMap, positionMs, amplitude);
+        double l0 = _tCodeMapper.MapToPosition(effectiveMap, positionMs, amplitude, out int currentBeatIndex);
 
         _axisPositionBuffer[0] = new AxisPosition { AxisId = "L0", Position = l0 };
         _eventBus.Publish(new ExternalAxisPositionsEvent
@@ -269,7 +269,7 @@ internal sealed class PulseEngine : IDisposable
         });
 
         // Publish beats in the BeatBar lookahead window (divisor-filtered).
-        PublishBeatEvents(effectiveMap, positionMs);
+        PublishBeatEvents(effectiveMap, positionMs, currentBeatIndex);
     }
 
     /// <summary>
@@ -502,7 +502,10 @@ internal sealed class PulseEngine : IDisposable
     /// <summary>
     /// Publish upcoming beats for BeatBar overlay display.
     /// </summary>
-    private void PublishBeatEvents(BeatMap beatMap, double positionMs)
+    /// <param name="beatMap">Effective beat map used for lookahead publishing.</param>
+    /// <param name="positionMs">Current playback position in milliseconds.</param>
+    /// <param name="currentBeatIndex">Current beat index at or before <paramref name="positionMs"/>.</param>
+    private void PublishBeatEvents(BeatMap beatMap, double positionMs, int currentBeatIndex)
     {
         if (beatMap.Beats.Count == 0) return;
 
@@ -527,8 +530,7 @@ internal sealed class PulseEngine : IDisposable
         }
 
         // Track the last beat we've passed for seek detection.
-        int currentBeatIdx = PulseTCodeMapper.FindCurrentBeatIndex(beatMap.Beats, positionMs);
-        _lastPublishedBeatIndex = currentBeatIdx;
+        _lastPublishedBeatIndex = currentBeatIndex;
 
         if (beatsInWindowCount > 0)
         {
