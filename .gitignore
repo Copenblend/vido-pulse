@@ -16,6 +16,7 @@ Context/
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
+.github/agents/
 
 # Mono auto generated files
 mono_crash.*
