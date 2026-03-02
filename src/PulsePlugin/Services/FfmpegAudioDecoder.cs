@@ -217,6 +217,71 @@ internal sealed class FfmpegAudioDecoder : IAudioDecoder
                 }
             }
 
+            // Flush delayed frames from the decoder.
+            result = ffmpeg.avcodec_send_packet(codecCtx, null);
+            if (result >= 0 || result == ffmpeg.AVERROR_EOF)
+            {
+                while (ffmpeg.avcodec_receive_frame(codecCtx, frame) == 0)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    var outSamples = ffmpeg.swr_get_out_samples(swrCtx, frame->nb_samples);
+                    if (outSamples <= 0)
+                    {
+                        ffmpeg.av_frame_unref(frame);
+                        continue;
+                    }
+
+                    int requiredSize = outSamples * TargetChannels * sizeof(float);
+                    if (conversionBuffer == null || conversionBuffer.Length < requiredSize)
+                        conversionBuffer = new byte[requiredSize];
+
+                    int converted;
+                    fixed (byte* pOut = conversionBuffer)
+                    {
+                        var outPtr = pOut;
+                        converted = ffmpeg.swr_convert(
+                            swrCtx, &outPtr, outSamples,
+                            frame->extended_data, frame->nb_samples);
+                    }
+
+                    ffmpeg.av_frame_unref(frame);
+
+                    if (converted <= 0) continue;
+
+                    var floatSpan = MemoryMarshal.Cast<byte, float>(conversionBuffer.AsSpan(0, converted * TargetChannels * sizeof(float)));
+                    int srcOffset = 0;
+
+                    while (srcOffset < floatSpan.Length)
+                    {
+                        int remaining = ChunkSamples - bufferOffset;
+                        int toCopy = Math.Min(remaining, floatSpan.Length - srcOffset);
+                        floatSpan.Slice(srcOffset, toCopy).CopyTo(sampleBuffer.AsSpan(bufferOffset));
+                        bufferOffset += toCopy;
+                        srcOffset += toCopy;
+
+                        if (bufferOffset >= ChunkSamples)
+                        {
+                            double timestampMs = totalSamplesEmitted * 1000.0 / TargetSampleRate;
+                            totalSamplesEmitted += ChunkSamples;
+
+                            var chunk = new AudioChunk
+                            {
+                                Samples = sampleBuffer.ToArray(),
+                                SampleRate = TargetSampleRate,
+                                TimestampMs = timestampMs,
+                                TotalDurationMs = totalDurationMs
+                            };
+
+                            while (!writer.TryWrite(chunk))
+                                Thread.Sleep(1);
+
+                            bufferOffset = 0;
+                        }
+                    }
+                }
+            }
+
             // Flush remaining samples
             if (bufferOffset > 0)
             {

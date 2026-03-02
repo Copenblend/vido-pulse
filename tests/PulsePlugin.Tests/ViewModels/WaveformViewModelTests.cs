@@ -375,6 +375,52 @@ public class WaveformViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task EngineReEnabled_RestoresWaveformData()
+    {
+        // Reproduce exact user flow: enable → analyze → ready → disable → re-enable.
+        _eventBus.Publish(MakeVideoLoaded());
+        _engine.SetEnabled(true);
+        await WaitForReady();
+
+        // Capture the original waveform data.
+        var originalWaveform = _vm.FullWaveform;
+        Assert.NotNull(originalWaveform);
+
+        // Disable — ViewModel should clear.
+        _engine.SetEnabled(false);
+        await Task.Delay(50);
+        Assert.False(_vm.IsActive);
+        Assert.Null(_vm.FullWaveform);
+
+        // Re-enable — cached beat map should immediately restore waveform.
+        _engine.SetEnabled(true);
+
+        Assert.True(_vm.IsActive, "IsActive must be true after re-enable");
+        Assert.NotNull(_vm.FullWaveform);
+        Assert.Same(originalWaveform, _vm.FullWaveform);
+        Assert.True(_vm.TotalDurationSeconds > 0);
+        Assert.True(_vm.CurrentBpm > 0);
+    }
+
+    [Fact]
+    public async Task EngineReEnabled_RepaintRequestedFires()
+    {
+        _eventBus.Publish(MakeVideoLoaded());
+        _engine.SetEnabled(true);
+        await WaitForReady();
+
+        _engine.SetEnabled(false);
+        await Task.Delay(50);
+
+        int repaintCount = 0;
+        _vm.RepaintRequested += () => repaintCount++;
+
+        _engine.SetEnabled(true);
+
+        Assert.True(repaintCount >= 1, "RepaintRequested must fire on re-enable so the waveform scrolls");
+    }
+
+    [Fact]
     public void EngineError_ClearsViewModel()
     {
         _decoder.SetException(new InvalidOperationException("boom"));
