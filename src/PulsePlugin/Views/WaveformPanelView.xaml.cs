@@ -124,6 +124,7 @@ public partial class WaveformPanelView : UserControl
         }
 
         DataContextChanged += OnDataContextChanged;
+        Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
 
@@ -405,13 +406,34 @@ public partial class WaveformPanelView : UserControl
         }
     }
 
+    /// <summary>
+    /// Re-subscribes to ViewModel events when the panel is shown again after being
+    /// hidden (e.g., switching from funscript visualizer back to Pulse waveform).
+    /// </summary>
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        _isDisposed = false;
+
+        // Re-wire ViewModel if it was cleared during Unloaded.
+        if (_viewModel == null && DataContext is WaveformViewModel vm)
+        {
+            _viewModel = vm;
+            _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+            _viewModel.RepaintRequested += OnRepaintRequested;
+        }
+
+        _waveformPathCacheValid = false;
+        UpdateEmptyState();
+        UpdateBpmReadout();
+        _skiaCanvas?.InvalidateVisual();
+    }
+
+    /// <summary>
+    /// Pauses event subscriptions when the panel is hidden. Does NOT dispose
+    /// native resources — the same instance is reused when the panel is re-shown.
+    /// </summary>
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
-        if (_isDisposed)
-            return;
-
-        _isDisposed = true;
-
         if (_viewModel != null)
         {
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
@@ -419,25 +441,6 @@ public partial class WaveformPanelView : UserControl
             _viewModel = null;
         }
 
-        DataContextChanged -= OnDataContextChanged;
-        Unloaded -= OnUnloaded;
-
-        if (_skiaCanvas != null)
-        {
-            _skiaCanvas.PaintSurface -= OnPaintSurface;
-        }
-
-        _gridPaint.Dispose();
-        _gridQuarterPaint.Dispose();
-        _waveformFillPaint.Dispose();
-        _waveformLinePaint.Dispose();
-        _cursorPaint.Dispose();
-        _cursorTrianglePaint.Dispose();
-        _timeLabelPaint.Dispose();
-        _timeTickPaint.Dispose();
-        _waveformFillPath.Dispose();
-        _waveformLinePath.Dispose();
-        _waveformBottomPath.Dispose();
-        _cursorTrianglePath.Dispose();
+        _waveformPathCacheValid = false;
     }
 }

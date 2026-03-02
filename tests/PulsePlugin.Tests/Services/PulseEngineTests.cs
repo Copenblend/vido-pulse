@@ -325,8 +325,30 @@ public class PulseEngineTests : IDisposable
 
         _engine.SetEnabled(false);
         Assert.Equal(PulseState.Inactive, _engine.State);
-        Assert.Null(_engine.CurrentBeatMap);
         Assert.False(_engine.BeatSource.IsAvailable);
+    }
+
+    [Fact]
+    public async Task SetEnabled_ReEnableAfterDisable_ReusesBeatMapAndRestoresReady()
+    {
+        _eventBus.Publish(MakeVideoLoaded());
+        _engine.SetEnabled(true);
+        await WaitForState(PulseState.Ready);
+
+        var originalMap = _engine.CurrentBeatMap;
+        Assert.NotNull(originalMap);
+
+        BeatMap? republished = null;
+        _engine.BeatMapReady += map => republished = map;
+
+        _engine.SetEnabled(false);
+        Assert.Equal(PulseState.Inactive, _engine.State);
+
+        _engine.SetEnabled(true);
+
+        Assert.Equal(PulseState.Ready, _engine.State);
+        Assert.Same(originalMap, _engine.CurrentBeatMap);
+        Assert.Same(originalMap, republished);
     }
 
     // ──────────────────────────────────────────────

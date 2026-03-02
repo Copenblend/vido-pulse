@@ -39,6 +39,7 @@ internal sealed class PulseEngine : IDisposable
     private bool _enabled;
     private BeatMap? _currentBeatMap;
     private BeatMap? _effectiveBeatMap; // filtered by beat divisor
+    private string? _currentBeatMapMediaPath;
     private int _beatDivisor = 1;
     private string? _currentMediaPath;
     private int _lastPublishedBeatIndex = -1;
@@ -161,6 +162,8 @@ internal sealed class PulseEngine : IDisposable
         string? mediaToAnalyze = null;
         bool doEnable = false;
         bool doDisable = false;
+        BeatMap? beatMapToPublish = null;
+        bool startLiveOnEnable = false;
 
         lock (_lock)
         {
@@ -177,8 +180,31 @@ internal sealed class PulseEngine : IDisposable
 
                 if (_currentMediaPath != null)
                 {
-                    mediaToAnalyze = _currentMediaPath;
-                    stateChange = TransitionTo(PulseState.Analyzing);
+                    bool canReuseBeatMap = _currentBeatMap != null
+                        && string.Equals(_currentBeatMapMediaPath, _currentMediaPath, StringComparison.OrdinalIgnoreCase);
+
+                    if (canReuseBeatMap)
+                    {
+                        RebuildEffectiveBeatMap();
+                        _lastPublishedBeatIndex = -1;
+                        _tCodeMapper.Reset();
+                        beatMapToPublish = _effectiveBeatMap ?? _currentBeatMap;
+
+                        if (_isPlaying)
+                        {
+                            stateChange = TransitionTo(PulseState.Active);
+                            startLiveOnEnable = true;
+                        }
+                        else
+                        {
+                            stateChange = TransitionTo(PulseState.Ready);
+                        }
+                    }
+                    else
+                    {
+                        mediaToAnalyze = _currentMediaPath;
+                        stateChange = TransitionTo(PulseState.Analyzing);
+                    }
                 }
             }
             else
@@ -188,7 +214,6 @@ internal sealed class PulseEngine : IDisposable
                 _liveAmplitudeService.Stop();
                 _liveAmplitudeService.Reset();
                 _tCodeMapper.Reset();
-                _currentBeatMap = null;
                 _lastPublishedBeatIndex = -1;
                 _beatSource.IsAvailable = false;
                 stateChange = TransitionTo(PulseState.Inactive);
@@ -198,6 +223,15 @@ internal sealed class PulseEngine : IDisposable
         // Fire state change outside lock.
         if (stateChange.HasValue)
             StateChanged?.Invoke(stateChange.Value);
+
+        if (startLiveOnEnable)
+        {
+            _liveAmplitudeService.Reset();
+            _liveAmplitudeService.Start();
+        }
+
+        if (beatMapToPublish != null)
+            BeatMapReady?.Invoke(beatMapToPublish);
 
         if (doEnable)
         {
@@ -320,15 +354,17 @@ internal sealed class PulseEngine : IDisposable
         lock (_lock)
         {
             _currentMediaPath = e.FilePath;
+            _currentBeatMap = null;
+            _effectiveBeatMap = null;
+            _currentBeatMapMediaPath = null;
+            _lastPublishedBeatIndex = -1;
+            _tCodeMapper.Reset();
 
             if (_enabled)
             {
                 shouldAnalyze = true;
                 _preAnalysisService.Cancel();
-                _currentBeatMap = null;
                 _beatSource.IsAvailable = false;
-                _lastPublishedBeatIndex = -1;
-                _tCodeMapper.Reset();
                 _liveAmplitudeService.Stop();
                 _liveAmplitudeService.Reset();
                 stateChange = TransitionTo(PulseState.Analyzing);
@@ -352,15 +388,16 @@ internal sealed class PulseEngine : IDisposable
         lock (_lock)
         {
             _currentMediaPath = null;
+            _currentBeatMap = null;
+            _effectiveBeatMap = null;
+            _currentBeatMapMediaPath = null;
+            _lastPublishedBeatIndex = -1;
+            _tCodeMapper.Reset();
 
             if (_enabled)
             {
                 _preAnalysisService.Cancel();
-                _currentBeatMap = null;
-                _effectiveBeatMap = null;
                 _beatSource.IsAvailable = false;
-                _lastPublishedBeatIndex = -1;
-                _tCodeMapper.Reset();
                 _liveAmplitudeService.Stop();
                 _liveAmplitudeService.Reset();
                 _isPlaying = false;
@@ -436,6 +473,7 @@ internal sealed class PulseEngine : IDisposable
             if (!_enabled) return;
 
             _currentBeatMap = beatMap;
+            _currentBeatMapMediaPath = _currentMediaPath;
             RebuildEffectiveBeatMap();
             _beatSource.IsAvailable = true;
             _lastPublishedBeatIndex = -1;
